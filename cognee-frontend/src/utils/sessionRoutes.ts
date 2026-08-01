@@ -8,7 +8,6 @@ export const AUTH_ROUTE_PATHS = [
   "/sign-in",
   "/sign-up",
   "/forgot-password",
-  "/local-login",
   "/verify-email",
   "/email-verified",
 ];

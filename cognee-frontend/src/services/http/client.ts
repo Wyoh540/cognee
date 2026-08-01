@@ -307,4 +307,28 @@ export function createHttpClient() {
 
 export const http = createHttpClient();
 
+// Global auth error handling on the default singleton.
+// Requests through `localFetch` are separately covered by handleServerErrors.
+http.interceptors.error.use((err) => {
+  if (!(err instanceof HttpError) || typeof window === "undefined") return;
+
+  if (err.status === 401 && window.location.pathname !== "/sign-in") {
+    // Not authenticated — redirect to login
+    window.location.href = "/sign-in";
+    return;
+  }
+
+  if (err.status === 403) {
+    // Authenticated but not authorized — show permission toast
+    import("@mantine/notifications").then(({ notifications }) => {
+      notifications.show({
+        title: "Permission Denied",
+        message: err.message || "You don't have permission to perform this action.",
+        color: "red",
+        autoClose: 5000,
+      });
+    });
+  }
+});
+
 export { HttpError };

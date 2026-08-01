@@ -10,7 +10,7 @@ export default function EmailVerifiedPage() {
     <Center className="flex-1 flex-col">
       <Flex className="flex-col items-center w-full px-6">
         <AuthCard>
-          <Flex className="flex-col gap-[1.5rem] items-center w-full max-w-[24rem]">
+          <Flex className="flex-col gap-[1.5rem] items-center w-full">
             <Flex className="flex-col gap-[0.75rem] items-center">
               <Title
                 order={2}
@@ -26,8 +26,10 @@ export default function EmailVerifiedPage() {
 
             <Link href="/sign-in" className="w-full">
               <Button
-                h="3rem"
-                className="!w-full !rounded-full !bg-[#BC9BFF] !text-[#1e1e1c] hover:!bg-[#A87CFF] !transition-colors !border-none"
+                fullWidth
+                h="2.75rem"
+                radius="md"
+                className="!bg-[#BC9BFF] !text-[#1e1e1c] hover:!bg-[#A87CFF] !transition-colors !border-none"
               >
                 <Text size="sm" fw={500}>
                   Sign in

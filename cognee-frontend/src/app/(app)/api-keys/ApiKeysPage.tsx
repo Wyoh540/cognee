@@ -10,7 +10,7 @@ import createApiKey from "@/modules/apiKeys/createAPIKey";
 import deleteApiKey from "@/modules/apiKeys/deleteAPIKey";
 import getMyUserId from "@/modules/apiKeys/getMyUserId";
 import { TrackPageView, trackEvent } from "@/modules/analytics";
-import { isCloudEnvironment } from "@/utils";
+
 import { notifications } from "@mantine/notifications";
 
 function StatusDot({ label, ready }: { label: string; ready: boolean }) {
@@ -47,16 +47,11 @@ function CheckIcon() {
   );
 }
 
-const localApiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8000";
-
 export default function ApiKeysPage() {
   const { cogniInstance, serviceUrl, isInitializing } = useCogniInstance();
   const { tenant, hasAccess, tenantReady } = useTenant();
-  const isCloud = isCloudEnvironment();
-  // In cloud, never fall back to localhost — show the real tenant URL when known,
-  // otherwise treat as provisioning. Only local/OSS mode uses localApiUrl.
-  const baseUrl = isCloud ? serviceUrl : (serviceUrl || localApiUrl);
-  const urlProvisioning = isCloud && !serviceUrl;
+  const baseUrl = serviceUrl;
+  const urlProvisioning = !serviceUrl;
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -224,10 +219,8 @@ export default function ApiKeysPage() {
                   <span style={{ fontSize: 13, color: "#EDECEA", fontFamily: 'ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", monospace', flex: 1, wordBreak: "break-all" }}>{tenantId}</span>
                   <CopyBtn id="tenant" text={tenantId} copiedField={copiedField} setCopiedField={setCopiedField} />
                 </>
-              ) : isCloud ? (
-                <span style={{ flex: 1 }}><SkeletonBar width={180} height={12} /></span>
               ) : (
-                <span style={{ fontSize: 13, color: "rgba(237,236,234,0.35)", fontFamily: 'ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", monospace', fontStyle: "italic" }}>Not assigned (local mode)</span>
+                <span style={{ flex: 1 }}><SkeletonBar width={180} height={12} /></span>
               )}
             </div>
           </div>
@@ -301,12 +294,10 @@ export default function ApiKeysPage() {
         </span>
       </div>
 
-      {isCloud && (
-        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          <StatusDot label="Workspace" ready={tenantReady} />
-          <StatusDot label="API Keys" ready={keysWarmed} />
-        </div>
-      )}
+      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+        <StatusDot label="Workspace" ready={tenantReady} />
+        <StatusDot label="API Keys" ready={keysWarmed} />
+      </div>
 
       {/* Table */}
       <div style={{ background: "rgba(255,255,255,0.06)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden" }}>

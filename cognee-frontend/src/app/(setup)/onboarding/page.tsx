@@ -1,7 +1,5 @@
 /**
- * Open-source stub — the cloud "already onboarded" redirect check is a
- * cloud-only feature and always dead code here (NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT
- * is forced to "false" for this build).
+ * Onboarding page — always enabled (cloud default).
  */
 import OnboardingPage from "./OnboardingPage";
 

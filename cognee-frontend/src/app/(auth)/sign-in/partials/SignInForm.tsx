@@ -3,15 +3,13 @@
 import { useState } from "react";
 import { Flex, Text, Title, TextInput, PasswordInput, Button } from "@mantine/core";
 import AuthCard from "@/ui/elements/Auth/AuthCard";
+import Link from "next/link";
 
-const localApiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8000";
+const apiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8000";
 
-const DEFAULT_EMAIL = "default_user@example.com";
-const DEFAULT_PASSWORD = "default_password";
-
-export default function LocalSignInForm() {
-  const [email, setEmail] = useState(DEFAULT_EMAIL);
-  const [password, setPassword] = useState(DEFAULT_PASSWORD);
+export default function SignInForm() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -21,11 +19,9 @@ export default function LocalSignInForm() {
     setIsLoading(true);
 
     try {
-      const formData = new URLSearchParams();
-      formData.append("username", email);
-      formData.append("password", password);
+      const formData = new URLSearchParams({ username: email, password });
 
-      const response = await global.fetch(`${localApiUrl}/api/v1/auth/login`, {
+      const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData.toString(),
@@ -33,7 +29,7 @@ export default function LocalSignInForm() {
       });
 
       if (!response.ok) {
-        const data = await response.json().catch((err) => {
+        const data = await response.json().catch((err: unknown) => {
           console.warn("Failed to parse login error response:", err);
           return null;
         });
@@ -52,7 +48,7 @@ export default function LocalSignInForm() {
     } catch (err) {
       if (err instanceof TypeError) {
         setError(
-          "Cannot connect to local backend at " + localApiUrl + ". Is it running?"
+          "Cannot connect to the backend at " + apiUrl + ". Is it running?"
         );
       } else {
         setError("Something went wrong. Please try again.");
@@ -70,10 +66,10 @@ export default function LocalSignInForm() {
           className="!text-[2.5rem] !font-light !leading-[1.1] !tracking-[-0.04em] !text-[#EDECEA]"
           style={{ fontFamily: '"TWKLausanne", sans-serif' }}
         >
-          Local instance
+          Sign in
         </Title>
         <Text size="sm" className="!text-[#EDECEA]/85 !font-light !text-center">
-          Sign in to your local Cognee backend
+          Sign in to your Cognee account
         </Text>
       </Flex>
 
@@ -121,10 +117,6 @@ export default function LocalSignInForm() {
           }}
         />
 
-        <Text size="xs" className="!text-[#EDECEA]/60 !font-light" mt={-4}>
-          Default credentials are pre-filled for local development
-        </Text>
-
         <Button
           type="submit"
           loading={isLoading}
@@ -139,6 +131,13 @@ export default function LocalSignInForm() {
           </Text>
         </Button>
       </form>
+
+      <Text size="xs" className="!text-[#EDECEA]/60 !font-light">
+        Don&apos;t have an account?{" "}
+        <Link href="/sign-up" className="!text-[#BC9BFF] hover:!underline">
+          Sign up
+        </Link>
+      </Text>
     </AuthCard>
   );
 }

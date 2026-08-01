@@ -92,7 +92,6 @@ export function FilterProvider({ children }: { children: ReactNode }) {
   const { cogniInstance, isInitializing } = useCogniInstance();
   const { tenant, tenantReady, availableTenants, switchTenant } = useTenant();
   const queryClient = useQueryClient();
-  const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
   const tenantId = tenant?.tenant_id ?? null;
@@ -123,6 +122,24 @@ export function FilterProvider({ children }: { children: ReactNode }) {
   // query data yet.
   const datasets = useMemo(() => datasetsQuery.data ?? [], [datasetsQuery.data]);
   const loading = datasetsQuery.isLoading;
+
+  // Agents / users available for sharing brains. Fetched once on mount and
+  // refreshed on window focus; the list changes infrequently (new user
+  // registrations), so there's no background poll.
+  const agentsQuery = useQuery({
+    queryKey: ["agents", tenantId],
+    queryFn: async ({ signal }) => {
+      const res = await cogniInstance!.fetch("/v1/activity/agents", { signal });
+      if (!res.ok) throw new Error(`Failed to fetch agents (${res.status})`);
+      const data: Agent[] = await res.json();
+      return data;
+    },
+    enabled: !!cogniInstance && !isInitializing && tenantReady,
+    refetchInterval: false,
+    retry: BACKGROUND_QUERY_RETRY_COUNT,
+    retryDelay: backgroundQueryRetryDelay,
+  });
+  const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
 
   // Build workspaces from available tenants
   const tenantWorkspaces = useMemo<Workspace[]>(() => {

@@ -71,7 +71,8 @@ export function useGraphSummary(
     // tenantReady, not just cogniInstance: see useDashboardTelemetry.ts for
     // why cogniInstance alone isn't enough — a fresh workspace's pod can
     // still be unreachable while cogniInstance already exists.
-    enabled: !!cogniInstance && tenantReady,
+    // Disabled until backend /graph-summary endpoint is implemented (COG-5726).
+    enabled: false,
     // Not a one-shot query anymore: refetchOnPipelineCompletion below handles
     // the real trigger (a run just finished), this interval is only the idle
     // fallback for runs this tab's telemetry poll never saw transition.

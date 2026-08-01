@@ -1,5 +1,4 @@
-
-// Default to cloud mode — local mode is opt-in via NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT=false
+// Cloud environment is the default — always enabled.
 export default function isCloudEnvironment() {
-  return process.env.NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT?.toLowerCase() !== "false";
+  return true;
 }

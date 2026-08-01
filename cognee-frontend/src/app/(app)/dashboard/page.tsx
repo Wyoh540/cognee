@@ -1,7 +1,5 @@
 /**
- * Open-source stub — the cloud onboarding/welcome redirect check is a
- * cloud-only feature and always dead code here (NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT
- * is forced to "false" for this build).
+ * Dashboard overview page — always enabled (cloud default).
  */
 import OverviewPage from "./OverviewPage";
 
