@@ -14,5 +14,6 @@ export default async function getLocalUser(): Promise<CogneeUser | null> {
     name: "Local User",
     email: "local@cognee.local",
     picture: "",
+    isSuperuser: true,
   };
 }

@@ -3,4 +3,5 @@ export default interface CogneeUser {
   name: string;
   email: string;
   picture: string;
+  isSuperuser: boolean;
 }

@@ -23,6 +23,7 @@ async def get_user_tenants(user: User):
                 {
                     "id": str(tenant.id),
                     "name": tenant.name,
+                    "is_owner": str(tenant.owner_id) == str(user.id),
                 }
             )
 

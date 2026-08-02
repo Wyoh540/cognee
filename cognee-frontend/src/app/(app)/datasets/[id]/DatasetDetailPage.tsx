@@ -70,6 +70,15 @@ function isMemoryBlobName(name: string): boolean {
   return /^text_[0-9a-f]{16,}(\.txt)?$/i.test(name);
 }
 
+// Files whose raw content can be previewed inline
+const PREVIEWABLE_EXTENSIONS = new Set(["txt", "md", "csv", "json", "xml", "yml", "yaml", "html", "css", "js", "ts", "py", "rs", "go", "java", "log"]);
+
+function canPreview(file: FileEntry): boolean {
+  if (isMemoryBlobName(file.name)) return true;
+  const ext = (file.extension || file.name.split(".").pop() || "").toLowerCase();
+  return PREVIEWABLE_EXTENSIONS.has(ext);
+}
+
 // ── SVG document icon matching Paper reference ──
 
 function FileIcon({ fill, stroke, text, label }: { fill: string; stroke: string; text: string; label: string }) {
@@ -175,6 +184,10 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
   const [search, setSearch] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Graph model selection
@@ -625,6 +638,28 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
         message: `Files were added, but building the knowledge graph failed: ${errorMessage}`,
         color: "red",
       });
+    }
+  }
+
+  async function handlePreview(file: FileEntry) {
+    if (!cogniInstance) return;
+    setPreviewFile(file);
+    setPreviewContent(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      const res = await cogniInstance.fetch(`/v1/datasets/${datasetId}/data/${file.id}/raw`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setPreviewError(body.detail || `Failed to load file (${res.status})`);
+        return;
+      }
+      const text = await res.text();
+      setPreviewContent(text);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
+    } finally {
+      setPreviewLoading(false);
     }
   }
 
@@ -1287,7 +1322,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
             <span style={{ width: 100, fontSize: 12, fontWeight: 700, color: "rgba(237,236,234,0.55)", flexShrink: 0 }}>Type</span>
             <span style={{ width: 80, fontSize: 12, fontWeight: 700, color: "rgba(237,236,234,0.55)", flexShrink: 0 }}>Size</span>
             <span style={{ width: 170, fontSize: 12, fontWeight: 700, color: "rgba(237,236,234,0.55)", flexShrink: 0 }}>Added</span>
-            <span style={{ width: 40, flexShrink: 0 }} />
+            <span style={{ width: 80, flexShrink: 0 }} />
           </div>
           {filtered.map((file, i) => {
             const isMemory = isMemoryBlobName(file.name);
@@ -1311,19 +1346,34 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
                 </div>
                 <span style={{ width: 100, fontSize: 13, color: "rgba(237,236,234,0.55)", flexShrink: 0 }}>{typeName}</span>
                 <span style={{ width: 80, fontSize: 13, color: "rgba(237,236,234,0.55)", flexShrink: 0 }}>—</span>
-                <span style={{ width: 170, fontSize: 13, color: "rgba(237,236,234,0.35)", flexShrink: 0 }}>{formatDate(file.createdAt)}</span>
-                <div style={{ width: 40, display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
-                  <button
-                    onClick={() => handleDelete(file.id)}
-                    className="cursor-pointer hover:opacity-100 rounded p-1"
-                    style={{ background: "none", border: "none", opacity: 0.5, transition: "opacity 150ms" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; }}
-                    title="Delete file"
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
+            <span style={{ width: 170, fontSize: 13, color: "rgba(237,236,234,0.35)", flexShrink: 0 }}>{formatDate(file.createdAt)}</span>
+            <div style={{ width: 80, display: "flex", justifyContent: "flex-end", flexShrink: 0, gap: 4 }}>
+              {canPreview(file) && (
+                <button
+                  onClick={() => handlePreview(file)}
+                  className="cursor-pointer hover:opacity-100 rounded p-1"
+                  style={{ background: "none", border: "none", opacity: 0.5, transition: "opacity 150ms" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; }}
+                  title="Preview file"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                    <circle cx="8" cy="8" r="3" stroke="#A1A1AA" strokeWidth="1.3" />
+                    <path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z" stroke="#A1A1AA" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => handleDelete(file.id)}
+                className="cursor-pointer hover:opacity-100 rounded p-1"
+                style={{ background: "none", border: "none", opacity: 0.5, transition: "opacity 150ms" }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; }}
+                title="Delete file"
+              >
+                <TrashIcon />
+              </button>
+            </div>
               </div>
             );
           })}
@@ -1332,6 +1382,88 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
         <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 48 }}>
           <span style={{ fontSize: 15, color: "rgba(237,236,234,0.35)" }}>{search ? "No files match your search" : "No files yet"}</span>
           <button onClick={() => fileInputRef.current?.click()} className="cursor-pointer hover:bg-[#5A0ED6]" style={{ background: "#6510F4", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 500 }}>Upload files</button>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewFile && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", zIndex: 150, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => { setPreviewFile(null); setPreviewContent(null); setPreviewError(null); }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "rgba(15,15,15,0.92)",
+              backdropFilter: "blur(16px)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 12,
+              width: "min(800px, 90vw)",
+              maxHeight: "min(600px, 80vh)",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 16px 48px rgba(0,0,0,0.4)",
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "14px 18px",
+              borderBottom: "1px solid rgba(255,255,255,0.08)",
+              flexShrink: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {(() => {
+                  const meta = isMemoryBlobName(previewFile.name)
+                    ? { fill: "rgba(188,155,255,0.20)", stroke: "#BC9BFF", text: "#BC9BFF", label: "MEM" }
+                    : getExtMeta(previewFile.name, previewFile.extension);
+                  return <FileIcon fill={meta.fill} stroke={meta.stroke} text={meta.text} label={meta.label} />;
+                })()}
+                <span style={{ fontSize: 14, fontWeight: 500, color: "#EDECEA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 400 }}>
+                  {decodeURIComponent(previewFile.name)}
+                </span>
+              </div>
+              <button
+                onClick={() => { setPreviewFile(null); setPreviewContent(null); setPreviewError(null); }}
+                style={{ background: "none", border: "none", color: "rgba(237,236,234,0.35)", fontSize: 18, cursor: "pointer", lineHeight: 1 }}
+              >
+                &#10005;
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ flex: 1, overflow: "auto", padding: "14px 18px", minHeight: 200 }}>
+              {previewLoading ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 150 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6510F4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}>
+                    <path d="M21 12a9 9 0 11-6.219-8.56" />
+                  </svg>
+                </div>
+              ) : previewError ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 150 }}>
+                  <span style={{ fontSize: 14, color: "#EF4444" }}>{previewError}</span>
+                </div>
+              ) : previewContent !== null ? (
+                <pre style={{
+                  margin: 0,
+                  fontSize: 13,
+                  color: "rgba(237,236,234,0.85)",
+                  lineHeight: "1.6",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  background: "rgba(255,255,255,0.03)",
+                  borderRadius: 8,
+                  padding: "16px",
+                  maxHeight: "100%",
+                }}>
+                  {previewContent}
+                </pre>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
 

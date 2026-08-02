@@ -52,6 +52,7 @@ def get_auth_router():
         return {
             "id": str(user.id),
             "email": user.email,
+            "is_superuser": user.is_superuser,
         }
 
     return router

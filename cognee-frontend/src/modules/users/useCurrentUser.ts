@@ -32,6 +32,7 @@ export function useCurrentUser(enabled = true): UseQueryResult<CogneeUser | null
             name: data.name ?? emailToName(data.email ?? ""),
             email: data.email ?? "",
             picture: data.picture ?? "",
+            isSuperuser: data.is_superuser ?? false,
           };
         }
       } catch {

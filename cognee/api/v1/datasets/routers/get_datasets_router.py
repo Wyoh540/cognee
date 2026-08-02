@@ -695,7 +695,7 @@ def get_datasets_router() -> APIRouter:
                 message=f"Data ({data_id}) not found in dataset ({dataset_id})."
             )
 
-        data = await get_data(user.id, data_id)
+        data = await get_data(user.id, data_id, skip_owner_check=True)
 
         if data is None:
             raise DataNotFoundError(

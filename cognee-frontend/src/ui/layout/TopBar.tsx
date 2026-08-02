@@ -9,6 +9,7 @@ import HelpMenu from "./HelpMenu";
 import ProfileMenu from "./ProfileMenu";
 import { useFilter } from "./FilterContext";
 import { useTenant } from "@/modules/tenant/TenantContext";
+import { clearSelectedTenant } from "@/modules/tenant/persistSelectedTenant";
 import useBoolean from "@/utils/useBoolean";
 import useOutsideClick from "@/utils/useOutsideClick";
 
@@ -82,7 +83,21 @@ export default function TopBar() {
       <div className="flex items-center" style={{ gap: 8 }}>
         {/* Logo fixed-width box so workspace aligns with right edge of navbar (240px - 24px padding) */}
         <div style={{ width: 240, flexShrink: 0, display: "flex", alignItems: "center" }}>
-          <Image src="/cognee-logo-black.svg" alt="Cognee" width={110} height={24} style={{ flexShrink: 0, filter: "invert(1)" }} />
+          <span
+            onClick={clearSelectedTenant}
+            style={{ cursor: "pointer", display: "inline-flex", alignItems: "center" }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter") clearSelectedTenant(); }}
+          >
+            <Image
+              src="/cognee-logo-black.svg"
+              alt="Cognee"
+              width={110}
+              height={24}
+              style={{ flexShrink: 0, filter: "invert(1)", pointerEvents: "none" }}
+            />
+          </span>
         </div>
 
         {/* 1. Workspace switcher */}
@@ -101,6 +116,7 @@ export default function TopBar() {
           {workspaces.map((ws) => {
             const tenantInfo = availableTenants.find((t) => t.id === ws.id);
             const blocked = tenantInfo ? !tenantInfo.ownerHasSubscription : false;
+            const isShared = tenantInfo ? !tenantInfo.isOwner : false;
             return (
               <div key={ws.id} onClick={() => !blocked && setWorkspace(ws)} className={blocked ? "" : "cursor-pointer"} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 6, background: workspace.id === ws.id ? "rgba(188,155,255,0.20)" : "transparent", opacity: blocked ? 0.5 : 1, cursor: blocked ? "default" : "pointer" }}>
                 <div style={{ width: 16, height: 16, borderRadius: 3, background: blocked ? "#555" : ws.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -109,11 +125,13 @@ export default function TopBar() {
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   <span style={{ fontSize: 13, fontWeight: workspace.id === ws.id ? 500 : 400, color: blocked ? "#71717A" : workspace.id === ws.id ? "rgba(188,155,255,0.60)" : "#EDECEA" }}>{ws.name}</span>
                   {blocked && <span style={{ fontSize: 10, color: "rgba(237,236,234,0.55)" }}>No active subscription</span>}
+                  {isShared && !blocked && <span style={{ fontSize: 10, color: "rgba(237,236,234,0.40)" }}>Shared with you</span>}
                 </div>
                 {workspace.id === ws.id && !blocked && <Check />}
               </div>
             );
           })}
+          {currentUser?.isSuperuser && (
           <>
             <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "4px 0" }} />
             <div
@@ -127,6 +145,7 @@ export default function TopBar() {
               </span>
             </div>
           </>
+          )}
         </Dropdown>
 
         {/* 2. Page name */}

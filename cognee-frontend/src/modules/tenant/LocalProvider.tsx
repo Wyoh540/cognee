@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { Tenant } from "./types";
 import { TenantContext, localInstance, type AvailableTenant } from "./TenantContext";
 import { tokens } from "@/ui/theme/tokens";
+import NameWorkspaceModal from "@/ui/layout/NameWorkspaceModal";
+import WorkspacePicker from "@/ui/layout/WorkspacePicker";
+import createWorkspace from "./createWorkspace";
+import persistSelectedTenant from "./persistSelectedTenant";
 
 const localApiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8000";
 
@@ -30,58 +34,110 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [tenantReady, setTenantReady] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableTenants, setAvailableTenants] = useState<AvailableTenant[]>([]);
+
+  // ── Create-workspace modal state ──
+  const [nameModalOpen, setNameModalOpen] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const requestCreateWorkspace = useCallback(() => {
+    setNameModalOpen(true);
+    setNewWorkspaceName("");
+    setCreateError(null);
+  }, []);
+
+  const handleCreateSubmit = useCallback(async () => {
+    const trimmed = newWorkspaceName.trim();
+    if (trimmed.length < 2) return;
+
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const result = await createWorkspace(trimmed);
+      if (result.success) {
+        setNameModalOpen(false);
+        // Refresh available tenants list
+        const tenants: Array<{ id: string; name: string; is_owner: boolean }> = await apiFetch("/v1/permissions/tenants/me").then((r) => r.json());
+        setAvailableTenants(
+          tenants.map((t) => ({ id: t.id, name: t.name, isOwner: t.is_owner, ownerHasSubscription: true })),
+        );
+      } else {
+        setCreateError(result.error || "Failed to create workspace");
+      }
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create workspace");
+    } finally {
+      setCreating(false);
+    }
+  }, [newWorkspaceName]);
+
+  const handleCreateClose = useCallback(() => {
+    setNameModalOpen(false);
+    setNewWorkspaceName("");
+    setCreateError(null);
+  }, []);
 
   const resolveTenant = useCallback(async () => {
     // 1. Verify authentication
     const meRes = await apiFetch("/v1/users/me");
 
     // 2. Check existing tenants
-    const tenants: Array<{ id: string; name: string }> = await apiFetch("/v1/permissions/tenants/me").then((r) => r.json());
+    const tenants: Array<{ id: string; name: string; is_owner: boolean }> = await apiFetch("/v1/permissions/tenants/me").then((r) => r.json());
 
-    let activeTenant: { id: string; name: string };
+    // Build available tenants list
+    const built: AvailableTenant[] = tenants.map((t) => ({
+      id: t.id,
+      name: t.name,
+      isOwner: t.is_owner,
+      ownerHasSubscription: true,
+    }));
 
     if (tenants.length === 0) {
-      // 3. No tenant — create one
-      const created: { tenant_id: string; message: string } = await apiFetch(
-        `/v1/permissions/tenants?tenant_name=MyWorkspace`,
-        { method: "POST" },
-      ).then((r) => r.json());
-      activeTenant = { id: created.tenant_id, name: "MyWorkspace" };
-    } else {
-      activeTenant = tenants[0];
-      // If user has tenants but none is selected, select the first one
-      const meData: { activeWorkspaceId?: string | null } = await meRes.json();
-      if (!meData.activeWorkspaceId) {
-        await apiFetch("/v1/permissions/tenants/select", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tenant_id: activeTenant.id }),
-        });
+      return { autoSelect: null, availableTenants: [] };
+    }
+
+    // One-shot flag from clearSelectedTenant() — user explicitly chose to go back to the picker
+    if (typeof sessionStorage !== "undefined") {
+      if (sessionStorage.getItem("cognee_show_picker")) {
+        sessionStorage.removeItem("cognee_show_picker");
+        return { autoSelect: null, availableTenants: built };
+      }
+
+      // User picked a workspace this session (from the picker or a switch)
+      const selectedId = sessionStorage.getItem("cognee_selected_tenant");
+      if (selectedId) {
+        const active = tenants.find((t) => t.id === selectedId);
+        if (active) {
+          return { autoSelect: active, availableTenants: built };
+        }
       }
     }
 
-    // 4. Build available tenants list
-    const built: AvailableTenant[] = tenants.length > 0
-      ? tenants.map((t) => ({
-          id: t.id,
-          name: t.name,
-          isOwner: true,
-          ownerHasSubscription: false,
-        }))
-      : [{ id: activeTenant.id, name: activeTenant.name, isOwner: true, ownerHasSubscription: false }];
+    // Fallback: user was previously in a workspace (backend tenant_id is set)
+    const meData: { tenant_id?: string | null } = await meRes.json();
+    if (meData.tenant_id) {
+      const active = tenants.find((t) => t.id === meData.tenant_id);
+      if (active) {
+        return { autoSelect: active, availableTenants: built };
+      }
+    }
 
-    return { activeTenant, availableTenants: built };
+    // Has workspaces but no selection anywhere — show picker
+    return { autoSelect: null, availableTenants: built };
   }, []);
 
-  const switchTenantFn = useCallback(async (tenantId: string) => {
+  const switchTenantFn = useCallback(async (tenantId: string, tenantName?: string) => {
     try {
       await apiFetch("/v1/permissions/tenants/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenant_id: tenantId }),
       });
+      persistSelectedTenant(tenantId, tenantName);
       const found = availableTenants.find((t) => t.id === tenantId);
       setTenant({ tenant_id: tenantId, tenant_name: found?.name ?? "" });
       window.location.reload();
@@ -105,8 +161,12 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
 
         setAvailableTenants(result.availableTenants);
-        setTenant({ tenant_id: result.activeTenant.id, tenant_name: result.activeTenant.name });
-        setTenantReady(true);
+        if (result.autoSelect) {
+          setTenant({ tenant_id: result.autoSelect.id, tenant_name: result.autoSelect.name });
+          setTenantReady(true);
+        } else {
+          setShowPicker(true);
+        }
       } catch (err) {
         if (cancelled) return;
 
@@ -142,6 +202,24 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (!isInitializing && showPicker) {
+    return (
+      <WorkspacePicker
+        workspaces={availableTenants}
+        switchTenant={switchTenantFn}
+        refreshWorkspaces={async () => {
+          const result = await resolveTenant();
+          setAvailableTenants(result.availableTenants);
+          if (result.autoSelect) {
+            setTenant({ tenant_id: result.autoSelect.id, tenant_name: result.autoSelect.name });
+            setTenantReady(true);
+            setShowPicker(false);
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <TenantContext.Provider value={{
       tenant,
@@ -158,12 +236,23 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
       switchTenant: switchTenantFn,
       planType: null,
       hasAccess: true,
-      requestCreateWorkspace: () => {},
+      requestCreateWorkspace,
       isOwner: true,
-      nameModalOpen: false,
+      nameModalOpen,
       releaseLoader: () => {},
     }}>
       {children}
+      {nameModalOpen && (
+        <NameWorkspaceModal
+          name={newWorkspaceName}
+          setName={setNewWorkspaceName}
+          submitting={creating}
+          error={createError}
+          onSubmit={handleCreateSubmit}
+          onClose={handleCreateClose}
+          showPaymentInfo={false}
+        />
+      )}
     </TenantContext.Provider>
   );
 }

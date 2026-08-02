@@ -3,15 +3,14 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 
 from cognee.infrastructure.databases.relational import get_relational_engine
-from cognee.modules.users.permissions.methods.has_user_management_permission import (
-    has_user_management_permission,
+from cognee.modules.users.permissions.methods.has_tenant_membership import (
+    has_tenant_membership,
 )
 
 
 async def get_tenant_roles(tenant_id: UUID, user):
-    # Check permissions - only tenant owner or users with specific roles (e.g. admin) can list roles in this tenant
-    # TODO: Consider if regular users should be able to see the list of roles with info
-    await has_user_management_permission(user.id, tenant_id)
+    # Ensure the requesting user is a member of this tenant
+    await has_tenant_membership(user.id, tenant_id)
 
     db_engine = get_relational_engine()
     async with db_engine.get_async_session() as session:
