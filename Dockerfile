@@ -1,74 +1,69 @@
-# Use a Python image with uv pre-installed
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS uv
+# ── Build stage ──────────────────────────────────────────────────────────────
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
-# Install the project into `/app`
 WORKDIR /app
 
-# Enable bytecode compilation: without it the venv ships no .pyc files, so
-# every container cold start recompiles the entire dependency tree from
-# source (measured on cognee-saas-pod: ~8s of a ~13s import, halving startup).
 ENV UV_COMPILE_BYTECODE=1
-
-# Copy from the cache instead of linking since it's a mounted volume
 ENV UV_LINK_MODE=copy
 
-# Set build argument
-ARG DEBUG
-
-# Set environment variable based on the build argument
-ENV DEBUG=${DEBUG}
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Build toolchain (only needed for building native extensions)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     git \
-    curl \
     cmake \
     clang \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml and lockfile first for better caching
+# Install dependencies (layer cache: pyproject + lock first)
 COPY README.md pyproject.toml uv.lock entrypoint.sh ./
-
-# Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra debug --extra api --extra postgres --extra neo4j --extra llama-index --extra ollama --extra mistral --extra groq --extra anthropic --frozen --no-install-project --no-dev --no-editable
+    uv sync --extra api --extra postgres --extra neo4j --extra llama-index \
+    --extra fastembed --extra ollama --extra mistral --extra groq --extra anthropic \
+    --frozen --no-install-project --no-dev --no-editable
 
-# Then, add the rest of the project source code and install it
-# Installing separately from its dependencies allows optimal layer caching
+# Copy source and install
 COPY ./cognee /app/cognee
-COPY ./distributed /app/distributed
-COPY ./cognee_db_workers /app/cognee_db_workers
-# Compatibility shim that re-exports ladybug under the legacy `kuzu`
-# module name. Listed in [tool.hatch.build.targets.wheel] packages, and
-# imported at module load by alembic/versions/b9274c27a25a_kuzu_11_migration.py.
-COPY ./kuzu /app/kuzu
 RUN --mount=type=cache,target=/root/.cache/uv \
-uv sync --extra debug --extra api --extra postgres --extra neo4j --extra llama-index --extra ollama --extra mistral --extra groq --extra anthropic --frozen --no-dev --no-editable
+    uv sync --extra api --extra postgres --extra neo4j --extra llama-index \
+    --extra fastembed --extra ollama --extra mistral --extra groq --extra anthropic \
+    --frozen --no-dev --no-editable
 
+# ── Runtime stage ────────────────────────────────────────────────────────────
 FROM python:3.12-slim-bookworm
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user with a real home directory (avoids /nonexistent fallback)
+RUN addgroup --system --gid 1001 cognee \
+    && adduser --system --uid 1001 --gid 1001 --home /home/cognee cognee \
+    && mkdir -p /home/cognee && chown cognee:cognee /home/cognee
+
+# Data directory for uploaded files — mount a volume here in production
+RUN mkdir -p /data && chown cognee:cognee /data
+
 WORKDIR /app
 
-COPY --from=uv /app /app
-# COPY --from=uv /app/.venv /app/.venv
-# COPY --from=uv /root/.local /root/.local
+# Copy artifacts from builder
+COPY --from=builder --chown=cognee:cognee /app /app
 
-# Strip Windows carriage returns (fixes "no such file" on Windows Docker)
+# Fix line endings and set executable
 RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-# Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
-
 ENV PYTHONPATH=/app
-# ENV LOG_LEVEL=ERROR
 ENV PYTHONUNBUFFERED=1
+ENV ENV=production
+
+USER cognee
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]

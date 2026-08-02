@@ -8,13 +8,20 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./cognee:/app/cognee
+      # - ./cognee:/app/cognee
       - .env:/app/.env
-      # Uncomment to allow ingestion of local files from host:
-      # - /path/to/your/data:/data
+      # Persistent storage for uploaded files (documents, images, etc.)
+      # - cognee_data:/data
     environment:
+      # Root directories — databases are all Postgres, so system/cache can live in /tmp
+      - DATA_ROOT_DIRECTORY=/data
+      - SYSTEM_ROOT_DIRECTORY=/tmp/cognee_system
+      - CACHE_ROOT_DIRECTORY=/tmp/cognee_cache
+      - COGNEE_LOGS_DIR=/tmp/logs
+      # Skip embedding provider connection test at startup — fastembed runs locally,
+      # but pgvector adapter init can trigger a stale test against the old provider.
+      - COGNEE_SKIP_CONNECTION_TEST=true
       - DEBUG=false # Change to true if debugging
-      - ENV=local
       - LOG_LEVEL=INFO
       # CAUTION: Default '*' allows all origins. Override with specific domains in production.
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
@@ -25,7 +32,7 @@ services:
       - 8000:8000
       - 5678:5678 # Debugger port
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -85,16 +92,14 @@ services:
     container_name: frontend
     restart: always
     environment:
-      - NEXT_PUBLIC_BACKEND_API_URL=${NEXT_PUBLIC_BACKEND_API_URL:-http://localhost:8000}
-      - NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT=false
-    profiles:
-        - ui
+      - NEXT_PUBLIC_BACKEND_API_URL=${NEXT_PUBLIC_BACKEND_API_URL:-http://cognee:8000}
+      - NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT=true
     build:
       context: ./cognee-frontend
       dockerfile: Dockerfile
-    volumes:
-      - ./cognee-frontend/src:/app/src
-      - ./cognee-frontend/public:/app/public
+    # volumes:
+    #   - ./cognee-frontend/src:/app/src
+    #   - ./cognee-frontend/public:/app/public
     ports:
       - 3000:3000
       # - 9229:9229 # Debugging
@@ -102,7 +107,7 @@ services:
       - cognee-network
 
   neo4j:
-    image: neo4j:5.26  # Pinned to 5.x; compatible with neo4j Python driver >=5.28,<6
+    image: neo4j:5.26 # Pinned to 5.x; compatible with neo4j Python driver >=5.28,<6
     container_name: neo4j
     restart: always
     profiles:
@@ -120,8 +125,6 @@ services:
     image: pgvector/pgvector:pg17
     container_name: postgres
     restart: always
-    profiles:
-      - postgres
     environment:
       POSTGRES_USER: cognee
       POSTGRES_PASSWORD: cognee
@@ -145,7 +148,6 @@ services:
       - redis_data:/data
     command: [ "redis-server", "--appendonly", "yes" ]
 
-
   redisinsight:
     image: redislabs/redisinsight:latest
     container_name: redisinsight
@@ -155,7 +157,6 @@ services:
     networks:
       - cognee-network
 
-
 networks:
   cognee-network:
     name: cognee-network
@@ -163,3 +164,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  cognee_data:

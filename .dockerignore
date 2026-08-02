@@ -12,5 +12,11 @@ examples/python/.dlt
 .venv
 .github
 
+# Local development data directories (auto-generated at runtime, don't bake into image)
+cognee/.data_storage
+cognee/.cognee_system
+cognee/.cognee_cache
+cognee/.env
+
 .idea
 .vscode
