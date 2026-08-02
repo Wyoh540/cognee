@@ -1,5 +1,5 @@
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional, Union
 from typing_extensions import Annotated
@@ -24,7 +24,10 @@ from cognee.modules.users.models import User
 from cognee.modules.users.methods import get_authenticated_user
 from cognee.modules.users.permissions.methods import get_all_user_permission_datasets
 from cognee.modules.graph.methods import get_formatted_graph_data
-from cognee.modules.pipelines.models import PipelineRunStatus
+from cognee.modules.pipelines.models import PipelineRun, PipelineRunStatus
+from cognee.infrastructure.databases.graph import get_graph_engine
+from cognee.context_global_variables import set_database_global_context_variables
+from sqlalchemy import select
 from cognee.shared.utils import send_telemetry
 from cognee import __version__ as cognee_version
 
@@ -70,6 +73,14 @@ class GraphEdgeDTO(OutDTO):
 class GraphDTO(OutDTO):
     nodes: List[GraphNodeDTO]
     edges: List[GraphEdgeDTO]
+
+
+class DatasetGraphSummaryDTO(OutDTO):
+    dataset_id: UUID
+    pipeline_run_id: Optional[UUID]
+    num_nodes: int
+    num_edges: int
+    computed_at: Optional[datetime]
 
 
 class DatasetCreationPayload(InDTO):
@@ -476,6 +487,107 @@ def get_datasets_router() -> APIRouter:
             return datasets_statuses
         except Exception as error:
             return JSONResponse(status_code=409, content={"error": str(error)})
+
+    @router.get("/graph-summary", response_model=list[DatasetGraphSummaryDTO])
+    async def get_dataset_graph_summary(
+        dataset_ids: Annotated[
+            List[UUID],
+            Query(
+                alias="dataset_ids",
+                description=(
+                    "Dataset UUIDs to get graph summary for (from GET /api/v1/datasets)."
+                    " Omit to get graph summary for all datasets you can read."
+                ),
+                examples=[["b8a7c3de-4f5a-4b6c-8d9e-0f1a2b3c4d5e"]],
+            ),
+        ] = [],
+        user: User = Depends(get_authenticated_user),
+    ):
+        """
+        Get precomputed graph node/edge counts for datasets.
+
+        This endpoint returns the number of nodes and edges in the knowledge graph
+        for each requested dataset. The counts are computed in real-time from the
+        graph store for the current dataset context.
+
+        ## Query Parameters
+        - **dataset_ids** (List[UUID]): List of dataset UUIDs to get summary for.
+          If omitted, returns summaries for all datasets the user has read permission on.
+
+        ## Response
+        Returns a list of graph summary objects containing:
+        - **datasetId**: Dataset identifier
+        - **pipelineRunId**: Latest pipeline run ID that produced the graph, or null
+        - **numNodes**: Number of graph nodes
+        - **numEdges**: Number of graph edges
+        - **computedAt**: ISO timestamp when the counts were computed
+
+        ## Error Codes
+        - **401/403**: Authentication or authorization failure
+        """
+        send_telemetry(
+            "Datasets API Endpoint Invoked",
+            user.id,
+            additional_properties={
+                "endpoint": "GET /v1/datasets/graph-summary",
+                "dataset_ids": [str(dataset_id) for dataset_id in dataset_ids],
+                "cognee_version": cognee_version,
+            },
+        )
+
+        try:
+            authorized_datasets = await get_authorized_existing_datasets(dataset_ids, "read", user)
+
+            summaries = []
+            db_engine = get_relational_engine()
+
+            async with db_engine.get_async_session() as session:
+                for dataset in authorized_datasets:
+                    try:
+                        async with set_database_global_context_variables(
+                            dataset.id, dataset.owner_id
+                        ):
+                            graph_engine = await get_graph_engine()
+                            metrics = await graph_engine.get_graph_metrics()
+
+                        latest_run_result = await session.execute(
+                            select(PipelineRun)
+                            .filter(PipelineRun.dataset_id == dataset.id)
+                            .order_by(PipelineRun.created_at.desc())
+                            .limit(1)
+                        )
+                        latest_run = latest_run_result.scalar_one_or_none()
+
+                        summaries.append(
+                            DatasetGraphSummaryDTO(
+                                dataset_id=dataset.id,
+                                pipeline_run_id=latest_run.pipeline_run_id if latest_run else None,
+                                num_nodes=metrics.get("num_nodes", 0),
+                                num_edges=metrics.get("num_edges", 0),
+                                computed_at=datetime.now(timezone.utc),
+                            )
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "Failed to get graph summary for dataset %s: %s", dataset.id, e
+                        )
+                        summaries.append(
+                            DatasetGraphSummaryDTO(
+                                dataset_id=dataset.id,
+                                pipeline_run_id=None,
+                                num_nodes=0,
+                                num_edges=0,
+                                computed_at=None,
+                            )
+                        )
+
+            return summaries
+        except Exception as error:
+            logger.error("Error retrieving graph summaries: %s", error)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error retrieving graph summaries: {str(error)}",
+            ) from error
 
     @router.get("/{dataset_id}/data/{data_id}/raw", response_class=FileResponse)
     async def get_raw_data(
