@@ -1,7 +1,3 @@
-/**
- * Open-source stub — API keys are managed via the local backend directly.
- */
-
 export interface ApiKey {
   id: string;
   key: string;
@@ -9,6 +5,10 @@ export interface ApiKey {
   name: string;
 }
 
-export default async function getApiKeys(_instance?: unknown): Promise<ApiKey[]> {
-  return [];
+export default async function getApiKeys(): Promise<ApiKey[]> {
+  const response = await fetch("/api/api-keys");
+  if (!response.ok) {
+    throw new Error(`Failed to fetch API keys: ${response.status}`);
+  }
+  return response.json();
 }

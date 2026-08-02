@@ -1,6 +1,15 @@
+import getApiKeys from "./getApiKeys";
+import createApiKey from "./createAPIKey";
+
 /**
- * Open-source stub — API key management not available in local mode.
+ * Returns an existing API key, or creates one if none exist.
  */
 export default async function getOrCreateApiKey(): Promise<string> {
-  return "";
+  const keys = await getApiKeys();
+  if (keys.length > 0) {
+    return keys[0].key;
+  }
+
+  const created = await createApiKey({ name: "Default" });
+  return created.key;
 }
