@@ -2,6 +2,7 @@
 
 import { captureException, recordUploadSuccess, recordUploadFailure } from "@/utils/monitoring";
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useCogniInstance, useTenant } from "@/modules/tenant/TenantProvider";
 import PageLoading from "@/ui/elements/PageLoading";
 import { useFilter } from "@/ui/layout/FilterContext";
@@ -12,7 +13,7 @@ import deleteDataset from "@/modules/datasets/deleteDataset";
 import pollDatasetStatus, { type DatasetProcessingStatus } from "@/modules/datasets/pollDatasetStatus";
 import { useDatasetStatuses } from "@/modules/datasets/useDatasetStatuses";
 import { TrackPageView, trackEvent } from "@/modules/analytics";
-import { loadGraphModelsConfig } from "@/modules/configuration/userConfiguration";
+import { loadGraphModelsConfig, clearDatasetOutdated } from "@/modules/configuration/userConfiguration";
 import rememberData from "@/modules/ingestion/rememberData";
 import { MAX_FILES_PER_UPLOAD } from "@/modules/ingestion/uploadLimits";
 import deleteDatasetData from "@/modules/datasets/deleteDatasetData";
@@ -136,6 +137,7 @@ function formatDate(dateStr?: string): string {
 }
 
 export default function DatasetsPage() {
+  const router = useRouter();
   const { cogniInstance, isInitializing } = useCogniInstance();
   const { tenant } = useTenant();
   const { datasets: contextDatasets, refreshDatasets: refreshFilterDatasets } = useFilter();
@@ -333,6 +335,10 @@ export default function DatasetsPage() {
       // Files were already added successfully by this point — this only tracks
       // knowledge-graph build progress, so its failure is reported separately.
       await pollDatasetStatus(ds.id, cogniInstance, { intervalMs: 5000 });
+      // Clear outdated flag — uploading new files re-cognifies the dataset, so
+      // the graph is now up-to-date with the latest configuration.
+      clearDatasetOutdated(cogniInstance, ds.id).catch((err) =>
+        captureException(err, { context: "datasets-page.upload-clear-outdated", datasetId: ds.id }));
       const data = await getDatasetData(ds.id, cogniInstance) as FileEntry[];
       setSelectedDocs(Array.isArray(data) ? data : []);
       setDatasets((prev) => prev.map((d) => d.id === ds.id ? { ...d, documents: Array.isArray(data) ? data.length : d.documents, status: "running" } : d));
@@ -605,7 +611,8 @@ export default function DatasetsPage() {
                 const active = ds.id === selectedId;
                 const statusLoading = ds.status === "loading";
                 const docsLoadingRow = ds.documents < 0;
-                const dotColor = outdatedDatasets.has(ds.id) ? "#F59E0B" : STATUS_DOT[ds.status];
+                const isOutdated = outdatedDatasets.has(ds.id);
+                const dotColor = STATUS_DOT[ds.status];
                 return (
                   <div key={ds.id} onClick={() => handleSelectDataset(ds.id)}
                     style={{
@@ -622,7 +629,19 @@ export default function DatasetsPage() {
                     {statusLoading ? (
                       <SkeletonBar width={7} height={7} />
                     ) : (
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+                      <span style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor }} />
+                        {isOutdated && (
+                          <span title="Graph model outdated — re-cognify to apply latest configuration" style={{
+                            display: "block",
+                            width: 0, height: 0,
+                            borderLeft: "4px solid transparent",
+                            borderRight: "4px solid transparent",
+                            borderBottom: "5px solid #F59E0B",
+                            flexShrink: 0,
+                          }} />
+                        )}
+                      </span>
                     )}
                     <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#EDECEA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {ds.name}
@@ -630,6 +649,15 @@ export default function DatasetsPage() {
                     <span style={{ fontSize: 11, color: "rgba(237,236,234,0.35)", flexShrink: 0, minWidth: 16, textAlign: "right" }}>
                       {docsLoadingRow ? <SkeletonBar width={14} height={8} /> : ds.documents}
                     </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); router.push(`/datasets/${ds.id}`); }}
+                      className="hover:bg-white/10"
+                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 9px", display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 500, color: "rgba(237,236,234,0.7)", cursor: "pointer", flexShrink: 0 }}
+                      title="Open brain details"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(237,236,234,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                      Open
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); trackEvent({ pageName: "Brains", eventName: "dataset_share_modal_opened", additionalProperties: { dataset_id: ds.id } }); setShareTarget(ds); }}
                       className="hover:bg-white/10"

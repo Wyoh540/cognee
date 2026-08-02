@@ -645,6 +645,11 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
     setSyncing(true);
     try {
       await cognifyDataset({ id: datasetId, name: datasetName, data: [], status: "processing" }, cogniInstance, getCognifyOptions());
+      // Clear outdated flag once cognify completes, so the list view no longer
+      // shows the dataset as needing re-cognification.
+      clearDatasetOutdated(cogniInstance, datasetId).catch((err) =>
+        captureException(err, { context: "dataset-detail.sync-clear-outdated", datasetId }));
+      setGraphOutdated(false);
       refetchStatuses();
       const finalStatus = await pollDatasetStatus(datasetId, cogniInstance, { intervalMs: 5000 });
       trackEvent({ pageName: "Dataset Detail", eventName: "dataset_synced", additionalProperties: { dataset_id: datasetId, status: finalStatus } });

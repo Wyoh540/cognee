@@ -50,6 +50,7 @@ def get_auth_router():
     @router.get("/me")
     async def get_me(user: User = Depends(get_authenticated_user)):
         return {
+            "id": str(user.id),
             "email": user.email,
         }
 
