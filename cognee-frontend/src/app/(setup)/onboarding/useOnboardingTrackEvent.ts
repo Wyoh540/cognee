@@ -3,7 +3,11 @@
 import { useTenant } from "@/modules/tenant/TenantProvider";
 import { trackEvent } from "@/modules/analytics";
 
-type TrackEventParams = Parameters<typeof trackEvent>[0];
+type TrackEventParams = {
+  pageName?: string;
+  eventName?: string;
+  additionalProperties?: Record<string, unknown>;
+};
 
 // Wraps trackEvent to stamp every onboarding event with the active tenant_id.
 // Read directly off TenantContext (not sessionStorage, unlike plan_type/

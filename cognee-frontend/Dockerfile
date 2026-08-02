@@ -1,22 +1,34 @@
-# Use an official Node.js runtime as a parent image
-FROM node:22-alpine
+# ── Build stage ──────────────────────────────────────────────────────────────
+FROM node:22-alpine AS builder
 
-# Set the working directory to /app
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory
+# Install dependencies (leveraging layer cache)
 COPY package.json package-lock.json ./
+RUN npm ci && npm rebuild lightningcss
 
-# Install any needed packages specified in package.json
-RUN npm ci
-RUN npm rebuild lightningcss
+# Copy source and build config (everything not in .dockerignore)
+COPY . .
+RUN npm run build
 
-# Copy the rest of the application code to the working directory
-COPY src ./src
-COPY public ./public
-COPY next.config.mjs .
-COPY postcss.config.mjs .
-COPY tsconfig.json .
+# ── Production stage ─────────────────────────────────────────────────────────
+FROM node:22-alpine AS runner
 
-# Build the app and run it
-CMD ["npm", "run", "dev"]
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
+
+# Copy only the artifacts needed to run
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs ./
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["npx", "next", "start", "--port", "3000"]
