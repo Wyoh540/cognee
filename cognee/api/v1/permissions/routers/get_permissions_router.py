@@ -21,6 +21,7 @@ from cognee.modules.users.tenants.methods.get_users_in_tenant import (
     get_users_in_tenant as method_get_users_in_tenant,
 )
 from cognee.modules.users.models import User
+from cognee.modules.data.methods import get_authorized_dataset
 from cognee.api.DTO import InDTO
 from cognee.modules.users.methods import get_authenticated_user
 from cognee.shared.utils import send_telemetry
@@ -575,5 +576,52 @@ def get_permissions_router() -> APIRouter:
         """
         tenants_list = await method_get_user_tenants(user=user)
         return JSONResponse(status_code=200, content=tenants_list)
+
+    @permissions_router.get("/datasets/{dataset_id}/principals")
+    async def get_dataset_principals(
+        dataset_id: UUID,
+        user: User = Depends(get_authenticated_user),
+    ):
+        """
+        List all principals and their permissions on a dataset.
+
+        Returns the existing shares for a dataset — which users, roles, and tenants
+        (workspace) have which permissions. The authenticated user must have at
+        least ``read`` access to the dataset.
+
+        ## Path Parameters
+        - **dataset_id** (UUID): The dataset to query permissions for.
+
+        ## Response
+        Returns a JSON object mapping ``principal_id`` (UUID string) to a list
+        of permission name strings:
+        ``{"principal-id-1": ["read", "write"], "principal-id-2": ["read"]}``.
+        If no permissions exist, returns an empty object ``{}``.
+        """
+        send_telemetry(
+            "Permissions API Endpoint Invoked",
+            user.id,
+            additional_properties={
+                "endpoint": f"GET /v1/permissions/datasets/{str(dataset_id)}/principals",
+                "dataset_id": str(dataset_id),
+                "cognee_version": cognee_version,
+            },
+        )
+
+        # Verify the caller has at least read access to the dataset.
+        authorized = await get_authorized_dataset(user, dataset_id, "read")
+        if authorized is None:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": f"Dataset {dataset_id} not accessible."},
+            )
+
+        from cognee.modules.users.permissions.methods import get_dataset_principals_permissions
+
+        permissions = await get_dataset_principals_permissions(dataset_id)
+
+        # Convert UUID keys to strings for JSON serialization.
+        result = {str(pid): sorted(perms) for pid, perms in permissions.items()}
+        return JSONResponse(status_code=200, content=result)
 
     return permissions_router

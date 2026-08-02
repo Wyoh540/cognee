@@ -458,7 +458,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
   useEffect(() => {
     if (!cogniInstance || isInitializing) return;
     // Resolve dataset name from FilterContext
-    const ds = contextDatasets.find((d) => d.id === datasetId) as { id: string; name: string; updatedAt?: string; connection_id?: string } | undefined;
+    const ds = contextDatasets.find((d) => d.id === datasetId) as { id: string; name: string; updatedAt?: string; connection_id?: string; permissions?: string[] } | undefined;
     if (ds) {
       setDatasetName(ds.name);
       if (ds.updatedAt) setLastSynced(ds.updatedAt);
@@ -682,6 +682,9 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
     return <><TrackPageView page="Dataset Detail" additionalProperties={{ dataset_id: datasetId }} /><div style={{ padding: 32, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}><span style={{ fontSize: 14, color: "rgba(237,236,234,0.55)" }}>Loading files...</span></div></>;
   }
 
+  const currentDataset = contextDatasets.find((d) => d.id === datasetId);
+  const permissions = currentDataset?.permissions ?? [];
+
   return (
     <div
       style={{ padding: 32, display: "flex", flexDirection: "column", gap: 24, height: "100%" }}
@@ -730,7 +733,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
           </span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          {isConnectedSource && (
+          {isConnectedSource && permissions.includes("write") && (
             <button
               onClick={handleSync}
               disabled={syncing}
@@ -741,7 +744,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
               {syncing ? "Syncing..." : "Sync"}
             </button>
           )}
-          {datasetName !== "default_dataset" && (
+          {datasetName !== "default_dataset" && permissions.includes("delete") && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="cursor-pointer hover:bg-red-500/10"
@@ -751,6 +754,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
               Delete
             </button>
           )}
+          {permissions.includes("share") && (
           <button
             onClick={() => setShowShareModal(true)}
             className="cursor-pointer hover:bg-white/10"
@@ -759,6 +763,8 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(237,236,234,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
             Share
           </button>
+          )}
+          {permissions.includes("write") && (
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
@@ -768,6 +774,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
           {uploading ? "Uploading..." : "Upload files"}
           </button>
+          )}
         </div>
       </div>
 

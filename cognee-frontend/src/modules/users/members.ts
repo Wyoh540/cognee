@@ -191,3 +191,25 @@ export async function getUsersInRole(
   }
   return res.json();
 }
+
+/**
+ * Get existing permissions on a dataset.
+ * Returns a mapping of principal_id → permission names
+ * (e.g. {"user-uuid": ["read", "write"], "role-uuid": ["read"]}).
+ * The caller must have at least read access to the dataset.
+ */
+export async function getDatasetPermissions(
+  datasetId: string,
+  instance: CogneeInstance,
+): Promise<Record<string, string[]>> {
+  const res = await instance.fetch(
+    `/v1/permissions/datasets/${datasetId}/principals`,
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      body.detail || `Failed to get dataset permissions (${res.status})`,
+    );
+  }
+  return res.json();
+}

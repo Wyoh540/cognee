@@ -30,6 +30,7 @@ export interface Agent {
 export interface Dataset {
   id: string;
   name: string;
+  permissions?: string[];
 }
 
 export interface Workspace {

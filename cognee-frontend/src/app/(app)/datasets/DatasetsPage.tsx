@@ -25,6 +25,7 @@ interface DatasetRaw {
   name: string;
   createdAt?: string;
   ownerId?: string;
+  permissions?: string[];
 }
 
 interface FileEntry {
@@ -658,16 +659,18 @@ export default function DatasetsPage() {
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(237,236,234,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
                       Open
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); trackEvent({ pageName: "Brains", eventName: "dataset_share_modal_opened", additionalProperties: { dataset_id: ds.id } }); setShareTarget(ds); }}
-                      className="hover:bg-white/10"
-                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 9px", display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 500, color: "rgba(237,236,234,0.7)", cursor: "pointer", flexShrink: 0 }}
-                      title="Share brain"
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(237,236,234,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
-                      Share
-                    </button>
-                    {ds.name !== "default_dataset" && (
+                    {ds.permissions?.includes("share") && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); trackEvent({ pageName: "Brains", eventName: "dataset_share_modal_opened", additionalProperties: { dataset_id: ds.id } }); setShareTarget(ds); }}
+                        className="hover:bg-white/10"
+                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 9px", display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 500, color: "rgba(237,236,234,0.7)", cursor: "pointer", flexShrink: 0 }}
+                        title="Share brain"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(237,236,234,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
+                        Share
+                      </button>
+                    )}
+                    {ds.name !== "default_dataset" && ds.permissions?.includes("delete") && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setDeleteTarget(ds); }}
                         style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 500, color: "rgba(237,236,234,0.7)", cursor: "pointer", flexShrink: 0 }}

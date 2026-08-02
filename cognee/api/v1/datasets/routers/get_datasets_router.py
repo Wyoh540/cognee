@@ -44,6 +44,7 @@ class DatasetDTO(OutDTO):
     created_at: datetime
     updated_at: Optional[datetime] = None
     owner_id: UUID
+    permissions: list[str] = []
 
 
 class DataDTO(OutDTO):
@@ -108,7 +109,8 @@ def get_datasets_router() -> APIRouter:
 
         This endpoint retrieves all datasets that the authenticated user has
         read permissions for. The datasets are returned with their metadata
-        including ID, name, creation time, and owner information.
+        including ID, name, creation time, owner information, and the
+        **effective ACL permissions** the current user holds on each dataset.
 
         ## Response
         Returns a list of dataset objects containing:
@@ -117,6 +119,8 @@ def get_datasets_router() -> APIRouter:
         - **created_at**: When the dataset was created
         - **updated_at**: When the dataset was last updated
         - **owner_id**: ID of the dataset owner
+        - **permissions**: List of ACL permissions the current user has on this
+          dataset (e.g. ["read", "write", "delete", "share"])
 
         ## Error Codes
         - **418 I'm a teapot**: Error retrieving datasets
@@ -133,7 +137,23 @@ def get_datasets_router() -> APIRouter:
         try:
             datasets = await get_all_user_permission_datasets(user, "read")
 
-            return datasets
+            # Resolve the user's full ACL permissions for each dataset so the
+            # frontend can conditionally render Share / Delete / Upload buttons.
+            from cognee.modules.users.permissions.methods import get_user_dataset_permissions
+
+            permissions_map = await get_user_dataset_permissions(user)
+
+            return [
+                DatasetDTO(
+                    id=d.id,
+                    name=d.name,
+                    created_at=d.created_at,
+                    updated_at=d.updated_at,
+                    owner_id=d.owner_id,
+                    permissions=sorted(permissions_map.get(d.id, {"read"})),
+                )
+                for d in datasets
+            ]
         except Exception as error:
             logger.error(f"Error retrieving datasets: {str(error)}")
             raise HTTPException(
@@ -182,11 +202,31 @@ def get_datasets_router() -> APIRouter:
             datasets = await get_datasets_by_name([dataset_data.name], user.id)
 
             if datasets:
-                return datasets[0]
+                # Resolve permissions for the existing dataset
+                from cognee.modules.users.permissions.methods import get_user_dataset_permissions
+
+                permissions_map = await get_user_dataset_permissions(user)
+                d = datasets[0]
+                return DatasetDTO(
+                    id=d.id,
+                    name=d.name,
+                    created_at=d.created_at,
+                    updated_at=d.updated_at,
+                    owner_id=d.owner_id,
+                    permissions=sorted(permissions_map.get(d.id, {"read"})),
+                )
 
             dataset = await create_authorized_dataset(dataset_data.name, user)
 
-            return dataset
+            # Newly created dataset — owner gets all four permissions
+            return DatasetDTO(
+                id=dataset.id,
+                name=dataset.name,
+                created_at=dataset.created_at,
+                updated_at=dataset.updated_at,
+                owner_id=dataset.owner_id,
+                permissions=sorted({"read", "write", "delete", "share"}),
+            )
         except Exception as error:
             logger.error(f"Error creating dataset: {str(error)}")
             raise HTTPException(
