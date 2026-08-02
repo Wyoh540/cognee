@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, WithJsonSchema
 from cognee.memory import QAEntry, TraceEntry, FeedbackEntry, SkillRunEntry
 from cognee.modules.users.models import User
 from cognee.modules.users.methods import get_authenticated_user
+from cognee.modules.users.exceptions import PermissionDeniedError
 from cognee.shared.utils import send_telemetry
 from cognee.shared.logging_utils import get_logger
 from cognee.shared.usage_logger import log_usage
@@ -381,6 +382,11 @@ def get_remember_router() -> APIRouter:
                 )
 
             return jsonable_encoder(result.to_dict())
+        except PermissionDeniedError:
+            return JSONResponse(
+                status_code=403,
+                content={"error": "You do not have permission to write to this dataset."},
+            )
         except CogneeApiError:
             # Cognee errors carry their own status code and actionable message;
             # the global handler in cognee/api/client.py returns them.

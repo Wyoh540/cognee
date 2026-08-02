@@ -20,7 +20,7 @@ class UnauthorizedDataAccessError(CogneeValidationError):
         self,
         message: str = "User does not have permission to access this data.",
         name: str = "UnauthorizedDataAccessError",
-        status_code=status.HTTP_401_UNAUTHORIZED,
+        status_code=status.HTTP_403_FORBIDDEN,
     ):
         super().__init__(message, name, status_code)
 

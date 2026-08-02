@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 from cognee.api.DTO import InDTO
 from cognee.modules.users.models import User
 from cognee.modules.users.methods import get_authenticated_user
+from cognee.modules.users.exceptions import PermissionDeniedError
+from cognee.modules.data.exceptions.exceptions import UnauthorizedDataAccessError
 from cognee.shared.utils import send_telemetry
 from cognee.shared.usage_logger import log_usage
 from cognee import __version__ as cognee_version
@@ -108,6 +110,11 @@ def get_forget_router() -> APIRouter:
                 user=user,
             )
             return result
+        except (PermissionDeniedError, UnauthorizedDataAccessError):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "You do not have permission to delete this dataset."},
+            )
         except ValueError:
             return JSONResponse(
                 status_code=422,

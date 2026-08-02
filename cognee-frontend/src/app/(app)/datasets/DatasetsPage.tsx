@@ -717,6 +717,7 @@ export default function DatasetsPage() {
                   <span style={{ fontSize: 11, color: "rgba(237,236,234,0.35)", display: "inline-flex", alignItems: "center", gap: 4 }}>
                     {docsLoading ? <SkeletonBar width={36} height={8} /> : <>{selectedDocs.length} doc{selectedDocs.length !== 1 ? "s" : ""}</>}
                   </span>
+                  {selectedDataset.permissions?.includes("write") && (
                   <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
                     <button
                       onClick={() => fileInputRef.current?.click()}
@@ -733,6 +734,7 @@ export default function DatasetsPage() {
                       Paste text
                     </button>
                   </div>
+                  )}
                 </>
               ) : (
                 <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(237,236,234,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Documents</span>
@@ -788,6 +790,7 @@ export default function DatasetsPage() {
                           <span style={{ fontSize: 11, color: "rgba(237,236,234,0.55)", fontWeight: 500, minWidth: 32, textAlign: "right" }}>{meta.label}</span>
                           <span style={{ fontSize: 11, color: "rgba(237,236,234,0.35)", minWidth: 52, textAlign: "right" }}>{formatSize(doc.size)}</span>
                           <span style={{ fontSize: 11, color: "rgba(237,236,234,0.35)", minWidth: 80, textAlign: "right", whiteSpace: "nowrap" }}>{formatDate(doc.createdAt)}</span>
+                          {selectedDataset?.permissions?.includes("delete") && (
                           <button
                             onClick={() => setDeleteDocTarget(doc)}
                             style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 500, color: "rgba(237,236,234,0.7)", cursor: "pointer", flexShrink: 0 }}
@@ -795,6 +798,7 @@ export default function DatasetsPage() {
                           >
                             Delete
                           </button>
+                          )}
                         </div>
                       </div>
                     );

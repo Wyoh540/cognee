@@ -8,6 +8,7 @@ from pydantic import WithJsonSchema
 
 from cognee.modules.users.models import User
 from cognee.modules.users.methods import get_authenticated_user
+from cognee.modules.users.exceptions import PermissionDeniedError
 from cognee.shared.utils import send_telemetry
 from cognee.modules.pipelines.models import PipelineRunErrored
 from cognee.shared.logging_utils import get_logger
@@ -139,6 +140,13 @@ def get_add_router() -> APIRouter:
                     ).model_dump(),
                 )
             return add_run.model_dump()
+        except PermissionDeniedError:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content=ErrorResponse(
+                    error="You do not have permission to write to this dataset.",
+                ).model_dump(),
+            )
         except Exception as error:
             logger.exception("Add failed")
             return JSONResponse(

@@ -1363,6 +1363,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
                   </svg>
                 </button>
               )}
+              {permissions.includes("delete") && (
               <button
                 onClick={() => handleDelete(file.id)}
                 className="cursor-pointer hover:opacity-100 rounded p-1"
@@ -1373,6 +1374,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
               >
                 <TrashIcon />
               </button>
+              )}
             </div>
               </div>
             );
@@ -1381,7 +1383,9 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
       ) : (
         <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 48 }}>
           <span style={{ fontSize: 15, color: "rgba(237,236,234,0.35)" }}>{search ? "No files match your search" : "No files yet"}</span>
+          {permissions.includes("write") && (
           <button onClick={() => fileInputRef.current?.click()} className="cursor-pointer hover:bg-[#5A0ED6]" style={{ background: "#6510F4", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 500 }}>Upload files</button>
+          )}
         </div>
       )}
 

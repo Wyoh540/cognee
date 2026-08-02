@@ -7,6 +7,8 @@ from fastapi import APIRouter
 from cognee.shared.logging_utils import get_logger
 from cognee.modules.users.models import User
 from cognee.modules.users.methods import get_authenticated_user
+from cognee.modules.users.exceptions import PermissionDeniedError
+from cognee.modules.data.exceptions.exceptions import UnauthorizedDataAccessError
 from cognee.shared.utils import send_telemetry
 from cognee import __version__ as cognee_version
 
@@ -64,6 +66,11 @@ def get_delete_router() -> APIRouter:
             )
             return result
 
+        except (PermissionDeniedError, UnauthorizedDataAccessError):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "You do not have permission to delete this data."},
+            )
         except Exception as error:
             logger.error(f"Error during deletion by data_id: {str(error)}")
             return JSONResponse(status_code=409, content={"error": str(error)})
