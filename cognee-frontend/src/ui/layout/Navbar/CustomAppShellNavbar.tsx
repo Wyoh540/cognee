@@ -92,6 +92,17 @@ function KeyIcon({ active }: { active: boolean }) {
   );
 }
 
+function UsersIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? "#BC9BFF" : "rgba(255,255,255,0.5)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
 // -- Navigation data --
 
 // Routes that require the tenant pod — dimmed/locked while it provisions.
@@ -115,7 +126,7 @@ interface NavSection {
   items: NavItem[];
 }
 
-const NAV_SECTIONS: NavSection[] = [
+const BASE_NAV_SECTIONS: NavSection[] = [
   {
     label: "DATA",
     items: [
@@ -142,10 +153,20 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
+const MANAGE_NAV_SECTION: NavSection = {
+  label: "MANAGE",
+  items: [
+    { text: "Members", link: "/members", icon: UsersIcon },
+  ],
+};
+
 export default function CustomAppShellNavbar() {
   const pathname = usePathname();
   const { isOpen, close } = useNavbar();
-  const { tenantReady } = useTenant();
+  const { tenantReady, isOwner } = useTenant();
+  const navSections: NavSection[] = isOwner
+    ? [...BASE_NAV_SECTIONS, MANAGE_NAV_SECTION]
+    : BASE_NAV_SECTIONS;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   return (
@@ -181,7 +202,7 @@ export default function CustomAppShellNavbar() {
 
         {/* Nav sections */}
         <nav className="flex-1 overflow-y-auto px-3 py-2">
-          {NAV_SECTIONS.map((section) => (
+          {navSections.map((section) => (
             <div key={section.label} className="mb-4">
               <div
                 className="px-3 mb-1"

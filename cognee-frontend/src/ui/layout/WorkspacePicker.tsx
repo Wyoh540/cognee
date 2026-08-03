@@ -6,6 +6,7 @@ import { useCurrentUser } from "@/modules/users/useCurrentUser";
 import { type AvailableTenant } from "@/modules/tenant/TenantContext";
 import NameWorkspaceModal from "./NameWorkspaceModal";
 import createWorkspace from "@/modules/tenant/createWorkspace";
+import ProfileMenu from "./ProfileMenu";
 
 /* ── Dark-theme constants matching CustomAppShell / TopBar ── */
 
@@ -92,6 +93,14 @@ export default function WorkspacePicker({ workspaces, switchTenant, refreshWorks
         <span style={{ fontSize: 14, fontWeight: 500, color: TEXT_SECONDARY }}>
           Workspaces
         </span>
+        {currentUser && (
+          <div style={{ marginLeft: "auto" }}>
+            <ProfileMenu
+              userName={currentUser.name}
+              userEmail={currentUser.email}
+            />
+          </div>
+        )}
       </header>
 
       {/* Body */}
