@@ -227,30 +227,21 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
   }
 
   if (showPicker) {
-    // Allow navigation to /settings — the user may have clicked "Profile" from
-    // the WorkspacePicker header avatar. During client-side navigation the layout
-    // stays mounted and showPicker remains true, so the picker would otherwise
-    // keep rendering and block the settings page (same guard pattern as /sign-in
-    // in the init effect).
-    if (typeof window !== "undefined" && window.location.pathname === "/settings") {
-      // fall through to TenantContext.Provider
-    } else {
-      return (
-        <WorkspacePicker
-          workspaces={availableTenants}
-          switchTenant={switchTenantFn}
-          refreshWorkspaces={async () => {
-            const result = await resolveTenant();
-            setAvailableTenants(result.availableTenants);
-            if (result.autoSelect) {
-              setTenant({ tenant_id: result.autoSelect.id, tenant_name: result.autoSelect.name });
-              setTenantReady(true);
-              setShowPicker(false);
-            }
-          }}
-        />
-      );
-    }
+    return (
+      <WorkspacePicker
+        workspaces={availableTenants}
+        switchTenant={switchTenantFn}
+        refreshWorkspaces={async () => {
+          const result = await resolveTenant();
+          setAvailableTenants(result.availableTenants);
+          if (result.autoSelect) {
+            setTenant({ tenant_id: result.autoSelect.id, tenant_name: result.autoSelect.name });
+            setTenantReady(true);
+            setShowPicker(false);
+          }
+        }}
+      />
+    );
   }
 
   return (
