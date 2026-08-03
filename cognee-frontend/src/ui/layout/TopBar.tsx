@@ -68,7 +68,7 @@ export default function TopBar() {
   const { data: currentUser } = useCurrentUser();
   const pathname = usePathname();
   const { workspace, workspaces, setWorkspace } = useFilter();
-  const { requestCreateWorkspace, availableTenants, isOwner } = useTenant();
+  const { requestCreateWorkspace, availableTenants } = useTenant();
 
   // Derive page label
   const basePath = "/" + (pathname.split("/").filter(Boolean)[0] || "");
@@ -163,7 +163,6 @@ export default function TopBar() {
           userName={currentUser?.name || ""}
           userEmail={currentUser?.email || ""}
           logoutHref="/api/signout"
-          showMembers={isOwner}
         />
       </div>
 
