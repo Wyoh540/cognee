@@ -6,10 +6,18 @@ import { TenantContext, localInstance, type AvailableTenant } from "./TenantCont
 import { tokens } from "@/ui/theme/tokens";
 import NameWorkspaceModal from "@/ui/layout/NameWorkspaceModal";
 import WorkspacePicker from "@/ui/layout/WorkspacePicker";
+import PageLoading from "@/ui/elements/PageLoading";
 import createWorkspace from "./createWorkspace";
 import persistSelectedTenant from "./persistSelectedTenant";
 
 const localApiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8000";
+
+const APP_SHELL_BG = {
+  backgroundColor: "#000000",
+  backgroundImage:
+    "linear-gradient(rgba(244,244,244,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(244,244,244,0.10) 1px, transparent 1px)",
+  backgroundSize: "33px 33px",
+} as const;
 
 /** Thin fetch wrapper for boot-time calls (before cogniInstance exists). */
 async function apiFetch(
@@ -196,13 +204,29 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
     };
   }, [resolveTenant]);
 
-  if (error && !isInitializing) {
+  if (isInitializing) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          ...APP_SHELL_BG,
+        }}
+      >
+        <PageLoading name="" />
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <ErrorScreen message={error} />
     );
   }
 
-  if (!isInitializing && showPicker) {
+  if (showPicker) {
     return (
       <WorkspacePicker
         workspaces={availableTenants}
