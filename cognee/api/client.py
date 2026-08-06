@@ -43,6 +43,7 @@ from cognee.api.v1.users.routers import (
     get_visualize_router,
     get_configuration_router,
     get_user_id_by_email_router,
+    get_admin_router,
 )
 from cognee.api.v1.api_keys.routers import get_api_key_management_router
 from cognee.api.v1.agents.routers import get_agents_router
@@ -305,6 +306,12 @@ app.include_router(
     get_sessions_router(),
     prefix="/api/v1/sessions",
     tags=["sessions"],
+)
+
+app.include_router(
+    get_admin_router(),
+    prefix="/api/v1/admin",
+    tags=["admin"],
 )
 
 app.include_router(get_remember_router(), prefix="/api/v1/remember", tags=["remember"])
