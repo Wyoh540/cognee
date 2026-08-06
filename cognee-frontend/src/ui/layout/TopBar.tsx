@@ -162,6 +162,7 @@ export default function TopBar() {
         <ProfileMenu
           userName={currentUser?.name || ""}
           userEmail={currentUser?.email || ""}
+          isSuperuser={currentUser?.isSuperuser ?? false}
           logoutHref="/api/signout"
         />
       </div>
