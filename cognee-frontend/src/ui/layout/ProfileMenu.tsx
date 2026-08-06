@@ -14,6 +14,14 @@ function PersonIcon() {
   );
 }
 
+function ShieldIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(237,236,234,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
 function LogoutIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -27,11 +35,12 @@ function LogoutIcon() {
 interface ProfileMenuProps {
   userName: string;
   userEmail: string;
+  isSuperuser?: boolean;   // 新增
   profileHref?: string;
   logoutHref?: string;
 }
 
-export default function ProfileMenu({ userName, userEmail, profileHref = "/settings", logoutHref = "/api/signout" }: ProfileMenuProps) {
+export default function ProfileMenu({ userName, userEmail, isSuperuser, profileHref = "/settings", logoutHref = "/api/signout" }: ProfileMenuProps) {
   const { value: isOpen, toggle, setFalse: close } = useBoolean(false);
   const closeCallback = useCallback(() => close(), [close]);
   const containerRef = useOutsideClick<HTMLDivElement>(closeCallback, isOpen);
@@ -96,6 +105,24 @@ export default function ProfileMenu({ userName, userEmail, profileHref = "/setti
             <PersonIcon />
             Profile
           </Link>
+
+          {/* Admin link — only for superusers */}
+          {isSuperuser && (
+            <>
+              <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "2px -6px" }} />
+              <Link
+                href="/admin"
+                onClick={close}
+                className="flex items-center gap-[10px] rounded-[6px] px-3 py-[10px]"
+                style={{ fontSize: 13, color: "rgba(237,236,234,0.8)", textDecoration: "none" }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)")}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "transparent")}
+              >
+                <ShieldIcon />
+                Admin
+              </Link>
+            </>
+          )}
 
           <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "2px -6px" }} />
 
