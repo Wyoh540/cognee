@@ -1,6 +1,7 @@
 "use client";
 
-import { Stack, Text, Tabs, Button } from "@mantine/core";
+import { Box, Flex, Stack, Text, NavLink, Button } from "@mantine/core";
+import { useState } from "react";
 import Link from "next/link";
 import WorkspacesPanel from "./WorkspacesPanel";
 import UsersPanel from "./UsersPanel";
@@ -16,6 +17,7 @@ const C = {
 
 export default function AdminPage() {
   const { data: currentUser, isLoading } = useCurrentUser();
+  const [activeSection, setActiveSection] = useState<"workspaces" | "users">("workspaces");
 
   if (isLoading) {
     return <PageLoading name="Admin" />;
@@ -67,41 +69,69 @@ export default function AdminPage() {
         </Text>
       </div>
 
-      {/* Tabs */}
-      <Tabs
-        defaultValue="workspaces"
-        styles={{
-          list: {
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
-            gap: 0,
-          },
-          tab: {
-            color: "rgba(237,236,234,0.5)",
-            fontSize: 14,
-            fontWeight: 500,
-            padding: "10px 20px",
-            border: "none",
-            "&[data-active]": {
-              color: C.accent,
-              borderBottom: `2px solid ${C.accent}`,
-            },
-            "&:hover": { background: "transparent", color: C.textPrimary },
-          },
-        }}
-      >
-        <Tabs.List>
-          <Tabs.Tab value="workspaces">Workspaces</Tabs.Tab>
-          <Tabs.Tab value="users">Users</Tabs.Tab>
-        </Tabs.List>
+      {/* Body: sidebar + content */}
+      <Flex style={{ flex: 1, minHeight: 0 }}>
+        {/* Sidebar */}
+        <Stack
+          gap={0}
+          style={{
+            width: 200,
+            flexShrink: 0,
+            borderRight: "1px solid rgba(255,255,255,0.08)",
+            paddingTop: 4,
+          }}
+        >
+          <NavLink
+            label="Workspaces"
+            active={activeSection === "workspaces"}
+            onClick={() => setActiveSection("workspaces")}
+            styles={{
+              root: {
+                fontSize: 14,
+                fontWeight: 500,
+                borderRadius: 0,
+                padding: "10px 16px",
+                color: activeSection === "workspaces" ? C.accent : "rgba(237,236,234,0.7)",
+                background: activeSection === "workspaces" ? "rgba(188,155,255,0.20)" : "transparent",
+                "&:hover": {
+                  background:
+                    activeSection === "workspaces"
+                      ? "rgba(188,155,255,0.20)"
+                      : "rgba(255,255,255,0.06)",
+                  color: activeSection === "workspaces" ? C.accent : C.textPrimary,
+                },
+              },
+            }}
+          />
+          <NavLink
+            label="Users"
+            active={activeSection === "users"}
+            onClick={() => setActiveSection("users")}
+            styles={{
+              root: {
+                fontSize: 14,
+                fontWeight: 500,
+                borderRadius: 0,
+                padding: "10px 16px",
+                color: activeSection === "users" ? C.accent : "rgba(237,236,234,0.7)",
+                background: activeSection === "users" ? "rgba(188,155,255,0.20)" : "transparent",
+                "&:hover": {
+                  background:
+                    activeSection === "users"
+                      ? "rgba(188,155,255,0.20)"
+                      : "rgba(255,255,255,0.06)",
+                  color: activeSection === "users" ? C.accent : C.textPrimary,
+                },
+              },
+            }}
+          />
+        </Stack>
 
-        <Tabs.Panel value="workspaces" pt="md">
-          <WorkspacesPanel />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="users" pt="md">
-          <UsersPanel />
-        </Tabs.Panel>
-      </Tabs>
+        {/* Content */}
+        <Box style={{ flex: 1, overflow: "auto", padding: "12px 0 0 20px" }}>
+          {activeSection === "workspaces" ? <WorkspacesPanel /> : <UsersPanel />}
+        </Box>
+      </Flex>
     </Stack>
   );
 }
