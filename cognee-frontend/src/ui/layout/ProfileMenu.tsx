@@ -35,7 +35,7 @@ function LogoutIcon() {
 interface ProfileMenuProps {
   userName: string;
   userEmail: string;
-  isSuperuser?: boolean;   // 新增
+  isSuperuser?: boolean;   // new
   profileHref?: string;
   logoutHref?: string;
 }
