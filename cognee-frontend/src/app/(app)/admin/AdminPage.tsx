@@ -71,12 +71,20 @@ export default function AdminPage() {
 
       {/* Sidebar hover styles */}
       <style>{`
-        .admin-sidenav:hover {
-          background-color: rgba(255,255,255,0.06);
+        .admin-sidenav {
+          background: transparent;
+          color: rgba(237,236,234,0.7);
+        }
+        .admin-sidenav[data-active] {
+          background: rgba(188,155,255,0.20);
+          color: #BC9BFF;
+        }
+        .admin-sidenav:hover:not([data-active]) {
+          background: rgba(255,255,255,0.06);
           color: #EDECEA;
         }
         .admin-sidenav[data-active]:hover {
-          background-color: rgba(188,155,255,0.20);
+          background: rgba(188,155,255,0.20);
           color: #BC9BFF;
         }
       `}</style>
@@ -104,8 +112,6 @@ export default function AdminPage() {
                 fontWeight: 500,
                 borderRadius: 0,
                 padding: "10px 16px",
-                color: activeSection === "workspaces" ? C.accent : "rgba(237,236,234,0.7)",
-                background: activeSection === "workspaces" ? "rgba(188,155,255,0.20)" : "transparent",
               },
             }}
           />
@@ -120,8 +126,6 @@ export default function AdminPage() {
                 fontWeight: 500,
                 borderRadius: 0,
                 padding: "10px 16px",
-                color: activeSection === "users" ? C.accent : "rgba(237,236,234,0.7)",
-                background: activeSection === "users" ? "rgba(188,155,255,0.20)" : "transparent",
               },
             }}
           />
