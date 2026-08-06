@@ -6,7 +6,6 @@ import { useNavbar } from "../NavbarContext";
 import NavbarIconLink from "./NavbarIconLink";
 import { ReactNode, useState } from "react";
 import { useTenant } from "@/modules/tenant/TenantContext";
-import { useCurrentUser } from "@/modules/users/useCurrentUser";
 import FeedbackModal from "@/ui/layout/FeedbackModal";
 
 // -- Icon components for nav items --
@@ -93,14 +92,6 @@ function KeyIcon({ active }: { active: boolean }) {
   );
 }
 
-function ShieldIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? "#BC9BFF" : "rgba(255,255,255,0.5)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  );
-}
-
 // -- Navigation data --
 
 // Routes that require the tenant pod — dimmed/locked while it provisions.
@@ -151,25 +142,13 @@ const BASE_NAV_SECTIONS: NavSection[] = [
   },
 ];
 
-const ADMIN_NAV_SECTION: NavSection = {
-  label: "ADMIN",
-  items: [
-    { text: "Admin", link: "/admin", icon: ShieldIcon },
-  ],
-};
-
 export default function CustomAppShellNavbar() {
   const pathname = usePathname();
   const { isOpen, close } = useNavbar();
   const { tenantReady } = useTenant();
-  const { data: currentUser } = useCurrentUser();
-  const isSuperuser = currentUser?.isSuperuser ?? false;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const navSections: NavSection[] = [...BASE_NAV_SECTIONS];
-  if (isSuperuser) {
-    navSections.push(ADMIN_NAV_SECTION);
-  }
 
   return (
     <>
