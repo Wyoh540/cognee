@@ -69,6 +69,18 @@ export default function AdminPage() {
         </Text>
       </div>
 
+      {/* Sidebar hover styles */}
+      <style>{`
+        .admin-sidenav:hover {
+          background-color: rgba(255,255,255,0.06);
+          color: #EDECEA;
+        }
+        .admin-sidenav[data-active]:hover {
+          background-color: rgba(188,155,255,0.20);
+          color: #BC9BFF;
+        }
+      `}</style>
+
       {/* Body: sidebar + content */}
       <Flex style={{ flex: 1, minHeight: 0 }}>
         {/* Sidebar */}
@@ -82,6 +94,7 @@ export default function AdminPage() {
           }}
         >
           <NavLink
+            className="admin-sidenav"
             label="Workspaces"
             active={activeSection === "workspaces"}
             onClick={() => setActiveSection("workspaces")}
@@ -93,17 +106,11 @@ export default function AdminPage() {
                 padding: "10px 16px",
                 color: activeSection === "workspaces" ? C.accent : "rgba(237,236,234,0.7)",
                 background: activeSection === "workspaces" ? "rgba(188,155,255,0.20)" : "transparent",
-                "&:hover": {
-                  background:
-                    activeSection === "workspaces"
-                      ? "rgba(188,155,255,0.20)"
-                      : "rgba(255,255,255,0.06)",
-                  color: activeSection === "workspaces" ? C.accent : C.textPrimary,
-                },
               },
             }}
           />
           <NavLink
+            className="admin-sidenav"
             label="Users"
             active={activeSection === "users"}
             onClick={() => setActiveSection("users")}
@@ -115,13 +122,6 @@ export default function AdminPage() {
                 padding: "10px 16px",
                 color: activeSection === "users" ? C.accent : "rgba(237,236,234,0.7)",
                 background: activeSection === "users" ? "rgba(188,155,255,0.20)" : "transparent",
-                "&:hover": {
-                  background:
-                    activeSection === "users"
-                      ? "rgba(188,155,255,0.20)"
-                      : "rgba(255,255,255,0.06)",
-                  color: activeSection === "users" ? C.accent : C.textPrimary,
-                },
               },
             }}
           />
