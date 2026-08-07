@@ -7,6 +7,7 @@ import { useFilter } from "@/ui/layout/FilterContext";
 import UpgradeBanner from "@/ui/elements/UpgradeBanner";
 import recallKnowledge from "@/modules/datasets/recallKnowledge";
 import getSearchHistory, { type SearchHistoryEntry } from "@/modules/searchHistory/getSearchHistory";
+import AppScrollArea from "@/ui/elements/AppScrollArea";
 import { listSessions, getSessionDetail, SEARCH_SESSION_PREFIX, type SessionRow } from "@/modules/sessions/getSessions";
 import { TrackPageView, trackEvent } from "@/modules/analytics";
 import BrainSelector from "@/ui/elements/BrainSelector";
@@ -461,7 +462,7 @@ export default function SearchPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <TrackPageView page="Search" />
 
       {/* Header */}
@@ -473,11 +474,11 @@ export default function SearchPage() {
       </div>
 
       {/* Main panel — same dark-glass container as Sessions / Brain */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", marginInline: 32, marginBottom: 32, border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, background: "rgba(0,0,0,0.82)", backdropFilter: "blur(20px)" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", marginInline: 32, marginBottom: 32, border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, background: "rgba(0,0,0,0.82)", backdropFilter: "blur(20px)" }}>
 
       {/* Sidebar */}
       {sidebarOpen && (
-        <div style={{ width: 260, borderRight: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <div style={{ width: 260, minHeight: 0, borderRight: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
           {/* Sidebar header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#EDECEA" }}>History</span>
@@ -492,7 +493,8 @@ export default function SearchPage() {
           </div>
 
           {/* Conversation list */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "8px 8px" }}>
+          <AppScrollArea style={{ flex: 1, minHeight: 0 }}>
+            <div style={{ padding: "8px 8px" }}>
             {allConversations.length === 0 && (
               <div style={{ padding: "24px 12px", textAlign: "center" }}>
                 <span style={{ fontSize: 12, color: "rgba(237,236,234,0.35)" }}>No conversations yet</span>
@@ -526,12 +528,13 @@ export default function SearchPage() {
                 ))}
               </div>
             ))}
-          </div>
+            </div>
+          </AppScrollArea>
         </div>
       )}
 
       {/* Main chat area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
         {!hasAccess && (
           <div style={{ padding: "12px 32px 0" }}>
             <UpgradeBanner />
@@ -548,7 +551,8 @@ export default function SearchPage() {
         )}
 
         {/* Messages area */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px 32px" }}>
+        <AppScrollArea style={{ flex: 1, minHeight: 0 }}>
+          <div style={{ minHeight: "100%", padding: "24px 32px" }}>
           {isEmpty && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 16 }}>
               <h2 style={{ fontSize: 20, fontWeight: 300, color: "#EDECEA", margin: 0, fontFamily: '"TWKLausanne", sans-serif', textAlign: "center" }}>What are you looking for today?</h2>
@@ -612,7 +616,8 @@ export default function SearchPage() {
               <div ref={messagesEndRef} />
             </div>
           )}
-        </div>
+          </div>
+        </AppScrollArea>
 
         {/* Input area */}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: "12px 32px 16px" }}>

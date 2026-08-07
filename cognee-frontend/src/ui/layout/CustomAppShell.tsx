@@ -59,7 +59,10 @@ export default function CustomAppShell({ children }: PropsWithChildren) {
   const podUnreachableHere = onPodDependent && podUnreachable;
   const podPending = onPodDependent && !podUnreachable && (!tenantReady || !cogniInstance);
   const isDashboard = pathname === "/dashboard";
-  const isFixedCanvas = pathname === "/knowledge-graph" || pathname === "/schema";
+  // Canvas-style routes manage scrolling inside their own panels and therefore
+  // need an exact content height rather than the shell's default min-height.
+  const isFixedCanvas =
+    pathname === "/knowledge-graph" || pathname === "/schema" || pathname === "/search";
 
   return (
     <div

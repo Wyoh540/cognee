@@ -4,6 +4,10 @@ const localApiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8
 
 let apiKey: string | null = process.env.NEXT_PUBLIC_COGWIT_API_KEY || null;
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
 export default async function localFetch(url: URL | RequestInfo, options: RequestInit = {}): Promise<Response> {
   const authHeaders: Record<string, string> = {};
   if (apiKey) {
@@ -40,6 +44,13 @@ export default async function localFetch(url: URL | RequestInfo, options: Reques
       return handleServerErrors(response, null, false);
     })
     .catch((error) => {
+      // Request cancellation is expected when React Query replaces a request or
+      // a component unmounts. Logging the DOMException with console.error makes
+      // Next.js dev mode display its error overlay even though nothing failed.
+      if (isAbortError(error)) {
+        return Promise.reject(error);
+      }
+
       console.error(`[LOCAL-API] ✗ ${method} ${fullUrl} — ERROR:`, error);
 
       // Network errors (no response from server) are TypeErrors from fetch
