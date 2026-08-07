@@ -1,0 +1,29 @@
+.scrollbar {
+  background-color: transparent;
+  padding: 2px;
+}
+
+.thumb {
+  background-color: rgba(237, 236, 234, 0.28);
+  border-radius: 999px;
+}
+
+.corner {
+  background-color: transparent;
+}
+
+/* Mantine inserts a content wrapper inside the viewport. Pages rendered in the
+   app shell historically relied on being direct children of a column flex
+   container, so restore that layout contract for full-height scroll areas. */
+.fillViewport > div {
+  display: flex !important;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Canvas-style pages need an exact height so their own flex children and
+   iframes can consume the remaining viewport instead of sizing to content. */
+.fullHeightViewport > div {
+  height: 100%;
+  min-height: 0;
+}

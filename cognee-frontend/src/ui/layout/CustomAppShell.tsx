@@ -9,6 +9,7 @@ import PageLoading from "@/ui/elements/PageLoading";
 import PodUnreachableCard from "@/ui/elements/PodUnreachableCard";
 import ProvisioningBanner from "./ProvisioningBanner";
 import WorkspaceProvisioning from "./WorkspaceProvisioning";
+import AppScrollArea from "@/ui/elements/AppScrollArea";
 
 const SHELL_HIDDEN_PATHS = [
   "/account",
@@ -58,6 +59,7 @@ export default function CustomAppShell({ children }: PropsWithChildren) {
   const podUnreachableHere = onPodDependent && podUnreachable;
   const podPending = onPodDependent && !podUnreachable && (!tenantReady || !cogniInstance);
   const isDashboard = pathname === "/dashboard";
+  const isFixedCanvas = pathname === "/knowledge-graph" || pathname === "/schema";
 
   return (
     <div
@@ -71,7 +73,8 @@ export default function CustomAppShell({ children }: PropsWithChildren) {
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
         <CustomAppShellNavbar />
-        <main className="flex-1 overflow-auto flex flex-col" style={{ background: "transparent" }}>
+        <main className="flex-1 min-w-0 min-h-0" style={{ background: "transparent" }}>
+          <AppScrollArea h="100%" fill fullHeight={isFixedCanvas}>
           {/* App-wide provisioning banner — shown only while still connecting.
               Suppressed once podUnreachable is terminal, otherwise the
               "Setting up your workspace" banner contradicted the "trouble
@@ -84,6 +87,7 @@ export default function CustomAppShell({ children }: PropsWithChildren) {
           ) : podPending ? (
             <WorkspaceProvisioning />
           ) : children}
+          </AppScrollArea>
         </main>
       </div>
     </div>

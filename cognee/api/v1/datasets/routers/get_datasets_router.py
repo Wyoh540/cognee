@@ -20,7 +20,7 @@ from cognee.modules.data.methods import get_datasets_by_name
 from cognee.modules.data.methods.create_authorized_dataset import create_authorized_dataset
 from cognee.shared.logging_utils import get_logger
 from cognee.api.v1.exceptions import DataNotFoundError
-from cognee.modules.users.models import User
+from cognee.modules.users.models import DatasetDatabase, User
 from cognee.modules.users.methods import get_authenticated_user
 from cognee.modules.users.permissions.methods import get_all_user_permission_datasets
 from cognee.modules.graph.methods import get_formatted_graph_data
@@ -97,6 +97,45 @@ class DatasetCreationPayload(InDTO):
 class DatasetSchemaPayloadDTO(InDTO):
     graph_schema: Optional[Dict[str, Any]] = None
     custom_prompt: Optional[str] = None
+
+
+class DatasetDatabaseConfigUpdateDTO(InDTO):
+    graph_database_name: Optional[str] = None
+    graph_database_host: Optional[str] = None
+    graph_database_port: Optional[str] = None
+    graph_database_username: Optional[str] = None
+    graph_database_password: Optional[str] = None
+    vector_database_name: Optional[str] = None
+    vector_database_host: Optional[str] = None
+    vector_database_port: Optional[str] = None
+    vector_database_username: Optional[str] = None
+    vector_database_password: Optional[str] = None
+
+
+def _dataset_database_config_response(record: DatasetDatabase) -> dict:
+    graph_info = record.graph_database_connection_info or {}
+    vector_info = record.vector_database_connection_info or {}
+    return {
+        "dataset_id": record.dataset_id,
+        "graph": {
+            "provider": record.graph_database_provider,
+            "handler": record.graph_dataset_database_handler,
+            "name": record.graph_database_name,
+            "host": graph_info.get("graph_database_host", ""),
+            "port": graph_info.get("graph_database_port", ""),
+            "username": graph_info.get("graph_database_username", ""),
+            "has_password": bool(graph_info.get("graph_database_password")),
+        },
+        "vector": {
+            "provider": record.vector_database_provider,
+            "handler": record.vector_dataset_database_handler,
+            "name": record.vector_database_name,
+            "host": vector_info.get("vector_database_host", ""),
+            "port": vector_info.get("vector_database_port", ""),
+            "username": vector_info.get("vector_database_username", ""),
+            "has_password": bool(vector_info.get("vector_database_password")),
+        },
+    }
 
 
 def get_datasets_router() -> APIRouter:
@@ -765,6 +804,65 @@ def get_datasets_router() -> APIRouter:
             "graph_schema": config.graph_schema,
             "custom_prompt": config.custom_prompt,
         }
+
+    @router.get("/{dataset_id}/database-config", response_model=dict)
+    async def get_dataset_database_config(
+        dataset_id: UUID, user: User = Depends(get_authenticated_user)
+    ):
+        """Return persisted per-dataset database settings to the dataset owner."""
+        datasets = await get_authorized_existing_datasets([dataset_id], "read", user)
+        if not datasets or datasets[0].owner_id != user.id:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        db_engine = get_relational_engine()
+        async with db_engine.get_async_session() as session:
+            record = await session.scalar(
+                select(DatasetDatabase).where(DatasetDatabase.dataset_id == dataset_id)
+            )
+        if not record:
+            raise HTTPException(status_code=404, detail="Dataset database config not found")
+        return _dataset_database_config_response(record)
+
+    @router.put("/{dataset_id}/database-config", response_model=dict)
+    async def update_dataset_database_config(
+        dataset_id: UUID,
+        payload: DatasetDatabaseConfigUpdateDTO,
+        user: User = Depends(get_authenticated_user),
+    ):
+        """Update persisted per-dataset database settings as the dataset owner."""
+        datasets = await get_authorized_existing_datasets([dataset_id], "write", user)
+        if not datasets or datasets[0].owner_id != user.id:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+        updates = payload.model_dump(exclude_unset=True)
+        db_engine = get_relational_engine()
+        async with db_engine.get_async_session() as session:
+            record = await session.scalar(
+                select(DatasetDatabase).where(DatasetDatabase.dataset_id == dataset_id)
+            )
+            if not record:
+                raise HTTPException(status_code=404, detail="Dataset database config not found")
+
+            if "graph_database_name" in updates:
+                record.graph_database_name = updates.pop("graph_database_name")
+            if "vector_database_name" in updates:
+                record.vector_database_name = updates.pop("vector_database_name")
+
+            graph_info = dict(record.graph_database_connection_info or {})
+            vector_info = dict(record.vector_database_connection_info or {})
+            for key, value in updates.items():
+                if value is None or (key.endswith("_password") and value == ""):
+                    continue
+                if key.startswith("graph_"):
+                    graph_info[key] = value
+                elif key.startswith("vector_"):
+                    vector_info[key] = value
+            record.graph_database_connection_info = graph_info
+            record.vector_database_connection_info = vector_info
+            await session.commit()
+            await session.refresh(record)
+
+        return _dataset_database_config_response(record)
 
     @router.put("/{dataset_id}/schema", response_model=dict)
     async def update_dataset_schema(

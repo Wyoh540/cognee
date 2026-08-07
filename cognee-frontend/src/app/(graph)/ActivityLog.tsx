@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useImperativeHandle, useState } from "react";
+import AppScrollArea from "@/ui/elements/AppScrollArea";
 
 type ActivityLog = {
   id: string;
@@ -39,7 +40,7 @@ export default function ActivityLog({ ref }: ActivityLogProps) {
   }));
 
   return (
-    <div className="overflow-y-auto max-h-96" id="activityLogContainer">
+    <AppScrollArea mah={384} viewportProps={{ id: "activityLogContainer" }}>
       <div className="flex flex-col-reverse gap-2">
         {activityLog.map((activity) => (
           <div key={activity.id} className="flex gap-2 items-top">
@@ -49,6 +50,6 @@ export default function ActivityLog({ ref }: ActivityLogProps) {
         ))}
         {!activityLog.length && <span className="text-white">No activity logged.</span>}
       </div>
-    </div>
+    </AppScrollArea>
   );
 }

@@ -1,0 +1,15 @@
+.previewModalClose {
+  background: transparent;
+  color: rgba(237, 236, 234, 0.62);
+  border-radius: 6px;
+}
+
+.previewModalClose:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #edecea;
+}
+
+.previewModalClose:focus-visible {
+  outline: 2px solid rgba(188, 155, 255, 0.75);
+  outline-offset: 2px;
+}

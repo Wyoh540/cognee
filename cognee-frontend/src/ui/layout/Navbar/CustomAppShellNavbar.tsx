@@ -7,6 +7,7 @@ import NavbarIconLink from "./NavbarIconLink";
 import { ReactNode, useState } from "react";
 import { useTenant } from "@/modules/tenant/TenantContext";
 import FeedbackModal from "@/ui/layout/FeedbackModal";
+import AppScrollArea from "@/ui/elements/AppScrollArea";
 
 // -- Icon components for nav items --
 
@@ -182,9 +183,11 @@ export default function CustomAppShellNavbar() {
         </div>
 
         {/* Nav sections */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2">
-          {navSections.map((section) => (
-            <div key={section.label} className="mb-4">
+        <nav className="flex-1 min-h-0">
+          <AppScrollArea h="100%">
+            <div className="px-3 py-2">
+              {navSections.map((section) => (
+                <div key={section.label} className="mb-4">
               <div
                 className="px-3 mb-1"
                 style={{
@@ -224,8 +227,10 @@ export default function CustomAppShellNavbar() {
                   />
                 );
               })}
+                </div>
+              ))}
             </div>
-          ))}
+          </AppScrollArea>
         </nav>
 
         {/* Feedback + Billing pinned to the bottom-left of the sidebar */}

@@ -7,3 +7,4 @@ export { default as IconButton } from "./IconButton";
 export { default as GhostButton } from "./GhostButton";
 export { default as NeutralButton } from "./NeutralButton";
 export { default as Accordion } from "./Accordion";
+export { default as AppScrollArea } from "./AppScrollArea";

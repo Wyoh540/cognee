@@ -24,6 +24,9 @@ import { inferSchema, generateCustomPrompt } from "@/modules/llm/managementLlmAp
 import { listOntologies, uploadOntology, deleteOntology, type OntologyMeta } from "@/modules/ontologies/ontologyApi";
 import ShareDatasetModal from "@/ui/elements/ShareDatasetModal";
 import { v4 as uuid } from "uuid";
+import DatasetDatabaseSettings from "./DatasetDatabaseSettings";
+import { useCurrentUser } from "@/modules/users/useCurrentUser";
+import PreviewFileButton from "@/ui/elements/PreviewFileButton";
 
 interface FileEntry {
   id: string;
@@ -141,6 +144,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
   const router = useRouter();
   const { cogniInstance, isInitializing } = useCogniInstance();
   const { datasets: contextDatasets } = useFilter();
+  const { data: currentUser } = useCurrentUser();
   const [datasetName, setDatasetName] = useState<string>(datasetId);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -719,6 +723,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
 
   const currentDataset = contextDatasets.find((d) => d.id === datasetId);
   const permissions = currentDataset?.permissions ?? [];
+  const isDatasetOwner = Boolean(currentUser && currentDataset?.ownerId === currentUser.id);
 
   return (
     <div
@@ -812,6 +817,10 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
           )}
         </div>
       </div>
+
+      {cogniInstance && isDatasetOwner && (
+        <DatasetDatabaseSettings datasetId={datasetId} instance={cogniInstance} />
+      )}
 
       {/* Share modal */}
       {showShareModal && (
@@ -1349,19 +1358,7 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
             <span style={{ width: 170, fontSize: 13, color: "rgba(237,236,234,0.35)", flexShrink: 0 }}>{formatDate(file.createdAt)}</span>
             <div style={{ width: 80, display: "flex", justifyContent: "flex-end", flexShrink: 0, gap: 4 }}>
               {canPreview(file) && (
-                <button
-                  onClick={() => handlePreview(file)}
-                  className="cursor-pointer hover:opacity-100 rounded p-1"
-                  style={{ background: "none", border: "none", opacity: 0.5, transition: "opacity 150ms" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; }}
-                  title="Preview file"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                    <circle cx="8" cy="8" r="3" stroke="#A1A1AA" strokeWidth="1.3" />
-                    <path d="M2 8s2.5-4.5 6-4.5S14 8 14 8s-2.5 4.5-6 4.5S2 8 2 8z" stroke="#A1A1AA" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
+                <PreviewFileButton onClick={() => handlePreview(file)} />
               )}
               {permissions.includes("delete") && (
               <button

@@ -19,6 +19,10 @@ import { MAX_FILES_PER_UPLOAD } from "@/modules/ingestion/uploadLimits";
 import deleteDatasetData from "@/modules/datasets/deleteDatasetData";
 import ShareDatasetModal from "@/ui/elements/ShareDatasetModal";
 import SkeletonBar from "@/ui/elements/SkeletonBar";
+import { Alert, Center, Loader, Modal, Paper, Text } from "@mantine/core";
+import AppScrollArea from "@/ui/elements/AppScrollArea";
+import PreviewFileButton from "@/ui/elements/PreviewFileButton";
+import classes from "./DatasetsPage.module.css";
 
 interface DatasetRaw {
   id: string;
@@ -88,6 +92,14 @@ function getExtMeta(name: string, ext?: string) {
   return EXT_META[e] || { fill: "#F3F4F6", stroke: "#9CA3AF", text: "#6B7280", label: e.toUpperCase().slice(0, 4) || "FILE" };
 }
 
+const PREVIEWABLE_EXTENSIONS = new Set(["txt", "md", "csv", "json", "xml", "yml", "yaml", "html", "css", "js", "ts", "py", "rs", "go", "java", "log"]);
+
+function canPreview(file: FileEntry): boolean {
+  if (/^text_[0-9a-f]{16,}(\.txt)?$/i.test(file.name)) return true;
+  const extension = (file.extension || file.name.split(".").pop() || "").toLowerCase();
+  return PREVIEWABLE_EXTENSIONS.has(extension);
+}
+
 function FileIcon({ fill, stroke, text, label }: { fill: string; stroke: string; text: string; label: string }) {
   const fs = label.length > 3 ? 4.5 : label.length > 2 ? 5 : 5.5;
   return (
@@ -95,18 +107,6 @@ function FileIcon({ fill, stroke, text, label }: { fill: string; stroke: string;
       <path d="M10 1H3a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V6l-5-5z" fill={fill} stroke={stroke} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M10 1v5h5" stroke={stroke} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
       <text x="8" y="14.5" textAnchor="middle" fontSize={fs} fontWeight="700" fill={text}>{label}</text>
-    </svg>
-  );
-}
-
-function FolderIcon() {
-  return (
-    <svg width="15" height="13" viewBox="0 0 15 13" fill="none" style={{ flexShrink: 0 }}>
-      <path d="M1 3a1 1 0 011-1h3.5L7 4h7a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V3z"
-        fill="#D4D4D8" fillOpacity="0.5"
-        stroke="#A1A1AA"
-        strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"
-      />
     </svg>
   );
 }
@@ -173,8 +173,39 @@ export default function DatasetsPage() {
   const [pasteText, setPasteText]           = useState("");
   const [pasting, setPasting]               = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const { statuses } = useDatasetStatuses(datasets.length > 0);
+
+  async function handlePreview(file: FileEntry) {
+    if (!cogniInstance || !selectedId) return;
+    setPreviewFile(file);
+    setPreviewContent(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      const response = await cogniInstance.fetch(`/v1/datasets/${selectedId}/data/${file.id}/raw`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setPreviewError(body.detail || `Failed to load file (${response.status})`);
+        return;
+      }
+      setPreviewContent(await response.text());
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : "Failed to load preview");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  function closePreview() {
+    setPreviewFile(null);
+    setPreviewContent(null);
+    setPreviewError(null);
+  }
 
   useEffect(() => {
     if (!cogniInstance || isInitializing) return;
@@ -790,6 +821,9 @@ export default function DatasetsPage() {
                           <span style={{ fontSize: 11, color: "rgba(237,236,234,0.55)", fontWeight: 500, minWidth: 32, textAlign: "right" }}>{meta.label}</span>
                           <span style={{ fontSize: 11, color: "rgba(237,236,234,0.35)", minWidth: 52, textAlign: "right" }}>{formatSize(doc.size)}</span>
                           <span style={{ fontSize: 11, color: "rgba(237,236,234,0.35)", minWidth: 80, textAlign: "right", whiteSpace: "nowrap" }}>{formatDate(doc.createdAt)}</span>
+                          {canPreview(doc) && (
+                            <PreviewFileButton onClick={() => handlePreview(doc)} />
+                          )}
                           {selectedDataset?.permissions?.includes("delete") && (
                           <button
                             onClick={() => setDeleteDocTarget(doc)}
@@ -828,6 +862,54 @@ export default function DatasetsPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        opened={previewFile !== null}
+        onClose={closePreview}
+        title={
+          <Text c="#EDECEA" size="sm" fw={500} truncate="end">
+            {previewFile ? decodeFilename(previewFile.name) : "Preview"}
+          </Text>
+        }
+        centered
+        size="xl"
+        radius="md"
+        classNames={{ close: classes.previewModalClose }}
+        styles={{
+          content: { background: "rgba(15,15,15,0.97)", border: "1px solid rgba(255,255,255,0.12)" },
+          header: { background: "rgba(15,15,15,0.97)", borderBottom: "1px solid rgba(255,255,255,0.08)", minHeight: 52 },
+          title: { minWidth: 0, flex: 1, paddingRight: 12 },
+          body: { padding: 0 },
+        }}
+      >
+        <AppScrollArea h="min(600px, 70vh)" p="md">
+          {previewLoading ? (
+            <Center h={200}><Loader color="violet" size="sm" /></Center>
+          ) : previewError ? (
+            <Alert color="red" variant="light" title="Unable to preview file">{previewError}</Alert>
+          ) : previewContent !== null ? (
+            <Paper
+              component="pre"
+              p="md"
+              radius="md"
+              style={{
+                margin: 0,
+                background: "rgba(255,255,255,0.035)",
+                color: "rgba(237,236,234,0.86)",
+                fontSize: 13,
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              }}
+            >
+              {previewContent}
+            </Paper>
+          ) : (
+            <Text c="dimmed" size="sm">No preview content.</Text>
+          )}
+        </AppScrollArea>
+      </Modal>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

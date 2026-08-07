@@ -7,7 +7,7 @@ import { ChangeEvent, useEffect, useImperativeHandle, useRef, useState } from "r
 
 import { DeleteIcon } from "@/ui/icons";
 // import { FeedbackForm } from "@/ui/Partials";
-import { CTAButton, Input, NeutralButton, Select } from "@/ui/elements";
+import { AppScrollArea, CTAButton, Input, NeutralButton, Select } from "@/ui/elements";
 
 interface GraphControlsProps {
   data?: {
@@ -204,23 +204,25 @@ export default function GraphControls({ data, isAddNodeFormOpen, onGraphShapeCha
           ) : (
             selectedNode ? (
               <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2 overflow-y-auto max-h-96 pr-2">
-                  <div className="flex gap-2 items-top">
-                    <span className="text-gray-300">ID:</span>
-                    <span className="text-white">{selectedNode.id}</span>
-                  </div>
-                  <div className="flex gap-2 items-top">
-                    <span className="text-gray-300">Label:</span>
-                    <span className="text-white">{selectedNode.label}</span>
-                  </div>
-
-                  {Object.entries(selectedNode.properties).map(([key, value]) => (
-                    <div key={key} className="flex gap-2 items-top">
-                      <span className="text-gray-300">{key.charAt(0).toUpperCase() + key.slice(1)}:</span>
-                      <span className="text-white">{typeof value === "object" ? JSON.stringify(value) : value as string}</span>
+                <AppScrollArea mah={384} pr={8}>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2 items-top">
+                      <span className="text-gray-300">ID:</span>
+                      <span className="text-white">{selectedNode.id}</span>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex gap-2 items-top">
+                      <span className="text-gray-300">Label:</span>
+                      <span className="text-white">{selectedNode.label}</span>
+                    </div>
+
+                    {Object.entries(selectedNode.properties).map(([key, value]) => (
+                      <div key={key} className="flex gap-2 items-top">
+                        <span className="text-gray-300">{key.charAt(0).toUpperCase() + key.slice(1)}:</span>
+                        <span className="text-white">{typeof value === "object" ? JSON.stringify(value) : value as string}</span>
+                      </div>
+                    ))}
+                  </div>
+                </AppScrollArea>
 
                 {/* <CTAButton type="button" onClick={() => {}}>Edit Node</CTAButton> */}
               </div>

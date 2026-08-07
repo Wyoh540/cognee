@@ -2,6 +2,7 @@
 
 import Modal from "@/ui/elements/Modal/Modal";
 import type { Dataset } from "@/ui/layout/FilterContext";
+import AppScrollArea from "@/ui/elements/AppScrollArea";
 
 interface DatasetPickerModalProps {
   open: boolean;
@@ -46,30 +47,32 @@ export function DatasetPickerModal({
           {pendingFiles.length} file{pendingFiles.length !== 1 ? "s" : ""} selected. Choose a brain to upload to.
         </p>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 300, overflow: "auto" }}>
-          {datasets.map((ds) => (
-            <button
-              key={ds.id}
-              onClick={() => onPick(ds)}
-              className="cursor-pointer hover:bg-white/10"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "12px 14px",
-                borderRadius: 8,
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "none",
-                textAlign: "left",
-                fontFamily: "inherit",
-                width: "100%",
-              }}
-            >
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: "var(--color-cognee-purple)", flexShrink: 0 }} />
-              <span style={{ fontSize: 14, fontWeight: 500, color: "#EDECEA" }}>{ds.name}</span>
-            </button>
-          ))}
-        </div>
+        <AppScrollArea mah={300}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {datasets.map((ds) => (
+              <button
+                key={ds.id}
+                onClick={() => onPick(ds)}
+                className="cursor-pointer hover:bg-white/10"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "12px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "none",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                  width: "100%",
+                }}
+              >
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: "var(--color-cognee-purple)", flexShrink: 0 }} />
+                <span style={{ fontSize: 14, fontWeight: 500, color: "#EDECEA" }}>{ds.name}</span>
+              </button>
+            ))}
+          </div>
+        </AppScrollArea>
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button

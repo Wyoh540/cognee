@@ -8,6 +8,7 @@ import searchDataset from "@/modules/datasets/searchDataset";
 import { TrackPageView } from "@/modules/analytics";
 import { completeOnboardingAndNavigate } from "./completeOnboardingAndNavigate";
 import { useOnboardingTrackEvent } from "./useOnboardingTrackEvent";
+import AppScrollArea from "@/ui/elements/AppScrollArea";
 
 const darkPage: React.CSSProperties = {
   backgroundColor: "#000000",
@@ -266,11 +267,11 @@ export default function ServeOnboarding() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-auto" style={darkPage}>
+    <AppScrollArea h="100%" style={darkPage} fill>
       {step === 1 && <ServeStep1 onNext={() => setStep(2)} />}
       {step === 2 && <ServeStep2 onNext={() => setStep(3)} />}
       {step === 3 && <ServeStep3 onNext={() => setStep(4)} cogniInstance={cogniInstance} />}
       {step === 4 && <ServeStep4 />}
-    </div>
+    </AppScrollArea>
   );
 }
