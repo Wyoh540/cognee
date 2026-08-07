@@ -29,6 +29,23 @@ export type DatasetDatabaseConfigUpdate = Partial<{
   vector_database_password: string;
 }>;
 
+type DatabaseTargetConfigResponse = Omit<DatabaseTargetConfig, "port"> & {
+  port: string | number | null;
+};
+
+type DatasetDatabaseConfigResponse = Omit<DatasetDatabaseConfig, "graph" | "vector"> & {
+  graph: DatabaseTargetConfigResponse;
+  vector: DatabaseTargetConfigResponse;
+};
+
+function normalizeDatabaseConfig(config: DatasetDatabaseConfigResponse): DatasetDatabaseConfig {
+  return {
+    ...config,
+    graph: { ...config.graph, port: config.graph.port == null ? "" : String(config.graph.port) },
+    vector: { ...config.vector, port: config.vector.port == null ? "" : String(config.vector.port) },
+  };
+}
+
 export async function getDatasetDatabaseConfig(
   instance: CogneeInstance,
   datasetId: string,
@@ -36,7 +53,7 @@ export async function getDatasetDatabaseConfig(
   const response = await instance.fetch(`/v1/datasets/${datasetId}/database-config`);
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Failed to load database settings (${response.status})`);
-  return response.json();
+  return normalizeDatabaseConfig(await response.json() as DatasetDatabaseConfigResponse);
 }
 
 export async function updateDatasetDatabaseConfig(
@@ -50,5 +67,5 @@ export async function updateDatasetDatabaseConfig(
     body: JSON.stringify(update),
   });
   if (!response.ok) throw new Error(`Failed to save database settings (${response.status})`);
-  return response.json();
+  return normalizeDatabaseConfig(await response.json() as DatasetDatabaseConfigResponse);
 }

@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import datetime, timezone
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Any, Dict, List, Optional, Union
 from typing_extensions import Annotated
 from fastapi import status
@@ -111,6 +111,18 @@ class DatasetDatabaseConfigUpdateDTO(InDTO):
     vector_database_username: Optional[str] = None
     vector_database_password: Optional[str] = None
 
+    @field_validator("graph_database_port", "vector_database_port", mode="before")
+    @classmethod
+    def normalize_database_port(cls, value: Any) -> Any:
+        """Accept JSON integer ports while persisting the canonical string representation."""
+        if isinstance(value, int) and not isinstance(value, bool):
+            return str(value)
+        return value
+
+
+def _stringify_database_port(value: Any) -> str:
+    return "" if value is None else str(value)
+
 
 def _dataset_database_config_response(record: DatasetDatabase) -> dict:
     graph_info = record.graph_database_connection_info or {}
@@ -122,7 +134,7 @@ def _dataset_database_config_response(record: DatasetDatabase) -> dict:
             "handler": record.graph_dataset_database_handler,
             "name": record.graph_database_name,
             "host": graph_info.get("graph_database_host", ""),
-            "port": graph_info.get("graph_database_port", ""),
+            "port": _stringify_database_port(graph_info.get("graph_database_port")),
             "username": graph_info.get("graph_database_username", ""),
             "has_password": bool(graph_info.get("graph_database_password")),
         },
@@ -131,7 +143,7 @@ def _dataset_database_config_response(record: DatasetDatabase) -> dict:
             "handler": record.vector_dataset_database_handler,
             "name": record.vector_database_name,
             "host": vector_info.get("vector_database_host", ""),
-            "port": vector_info.get("vector_database_port", ""),
+            "port": _stringify_database_port(vector_info.get("vector_database_port")),
             "username": vector_info.get("vector_database_username", ""),
             "has_password": bool(vector_info.get("vector_database_password")),
         },

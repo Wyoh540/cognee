@@ -11,6 +11,25 @@ import {
   type DatasetDatabaseConfigUpdate,
 } from "@/modules/datasets/datasetDatabaseConfig";
 
+function readableDatabaseError(reason: unknown, fallback: string): string {
+  const message = reason instanceof Error ? reason.message : String(reason || fallback);
+  try {
+    const details = JSON.parse(message) as Array<{ loc?: unknown[]; msg?: string }>;
+    if (Array.isArray(details)) {
+      return details
+        .map((detail) => {
+          const field = detail.loc?.at(-1);
+          const label = typeof field === "string" ? field.replaceAll("_", " ") : "Setting";
+          return `${label}: ${detail.msg || "Invalid value"}`;
+        })
+        .join("\n");
+    }
+  } catch {
+    // The server may already have returned a human-readable error.
+  }
+  return message;
+}
+
 function TargetFields({
   kind,
   target,
@@ -77,7 +96,7 @@ export default function DatasetDatabaseSettings({ datasetId, instance }: { datas
     let active = true;
     getDatasetDatabaseConfig(instance, datasetId)
       .then((value) => { if (active) setConfig(value); })
-      .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "Failed to load database settings"); })
+      .catch((reason) => { if (active) setError(readableDatabaseError(reason, "Failed to load database settings")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [datasetId, instance]);
@@ -107,7 +126,7 @@ export default function DatasetDatabaseSettings({ datasetId, instance }: { datas
       setGraphPassword("");
       setVectorPassword("");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Failed to save database settings");
+      setError(readableDatabaseError(reason, "Failed to save database settings"));
     } finally {
       setSaving(false);
     }
@@ -129,7 +148,21 @@ export default function DatasetDatabaseSettings({ datasetId, instance }: { datas
           </Stack>
           {config && <Button color="violet" variant="filled" loading={saving} onClick={save}>Save changes</Button>}
         </Group>
-      {error && <Alert color="red" variant="light" title="Unable to save settings">{error}</Alert>}
+      {error && (
+        <Alert
+          color="red"
+          variant="filled"
+          title="Unable to save settings"
+          styles={{
+            root: { background: "rgba(122, 26, 26, 0.92)", border: "1px solid rgba(255, 125, 125, 0.55)" },
+            title: { color: "#FFFFFF", fontWeight: 700 },
+            message: { color: "#FFE8E8", whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+            icon: { color: "#FFFFFF" },
+          }}
+        >
+          {error}
+        </Alert>
+      )}
       {config && (
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
           <TargetFields kind="graph" target={config.graph} password={graphPassword} onChange={(graph) => setConfig({ ...config, graph })} onPasswordChange={setGraphPassword} />
