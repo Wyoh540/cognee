@@ -27,6 +27,7 @@ from typing import Optional
 from fastapi import status
 
 from cognee.exceptions import CogneeSystemError
+from cognee.root_dir import get_cognee_root_directory
 from cognee.shared.logging_utils import get_logger
 
 logger = get_logger("enola")
@@ -89,7 +90,7 @@ def installed_binary_path() -> Path:
     """Where the auto-installed binary lives (may not exist yet)."""
     suffix = ".exe" if platform.system().lower() == "windows" else ""
     binary_name = f"enola-{ENOLA_PINNED_VERSION}-{_platform_key()}{suffix}"
-    return Path.home() / ".cognee" / "bin" / binary_name
+    return get_cognee_root_directory() / "bin" / binary_name
 
 
 def _download(url: str, destination: Path) -> None:

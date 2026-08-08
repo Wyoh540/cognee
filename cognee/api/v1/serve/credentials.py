@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import Optional
 
 from cognee.shared.logging_utils import get_logger
+from cognee.root_dir import get_cognee_root_directory
 
 logger = get_logger("serve.credentials")
 
-_CREDENTIALS_DIR = Path.home() / ".cognee"
+_CREDENTIALS_DIR = get_cognee_root_directory()
 _CREDENTIALS_FILE = _CREDENTIALS_DIR / "cloud_credentials.json"
 
 

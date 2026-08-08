@@ -11,6 +11,8 @@ cognee-frontend
 examples/python/.dlt
 .venv
 .github
+.git
+.codegraph
 
 # Local development data directories (auto-generated at runtime, don't bake into image)
 cognee/.data_storage

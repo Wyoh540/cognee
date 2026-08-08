@@ -3,7 +3,7 @@ import base64
 from pathlib import Path
 from typing import Optional
 from functools import lru_cache
-from cognee.root_dir import get_absolute_path, ensure_absolute_path
+from cognee.root_dir import ensure_absolute_path, get_cognee_root_directory
 from cognee.modules.observability.observers import Observer
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,19 +11,28 @@ import pydantic
 
 
 class BaseConfig(BaseSettings):
+    cognee_root_directory: str = Field(
+        default_factory=lambda: str(get_cognee_root_directory()),
+        validation_alias=AliasChoices(
+            "COGNEE_HOME", "COGNEE_ROOT_DIRECTORY", "cognee_root_directory"
+        ),
+    )
     data_root_directory: str = Field(
-        default_factory=lambda: get_absolute_path(".data_storage"),
+        default_factory=lambda: str(get_cognee_root_directory() / "data"),
         validation_alias=AliasChoices("DATA_ROOT_DIRECTORY", "data_root_directory"),
     )
     system_root_directory: str = Field(
-        default_factory=lambda: get_absolute_path(".cognee_system"),
+        default_factory=lambda: str(get_cognee_root_directory() / "system"),
         validation_alias=AliasChoices("SYSTEM_ROOT_DIRECTORY", "system_root_directory"),
     )
     cache_root_directory: str = Field(
-        default_factory=lambda: get_absolute_path(".cognee_cache"),
+        default_factory=lambda: str(get_cognee_root_directory() / "cache"),
         validation_alias=AliasChoices("CACHE_ROOT_DIRECTORY", "cache_root_directory"),
     )
-    logs_root_directory: str = os.getenv("COGNEE_LOGS_DIR", str(Path.home() / ".cognee" / "logs"))
+    logs_root_directory: str = Field(
+        default_factory=lambda: str(get_cognee_root_directory() / "logs"),
+        validation_alias=AliasChoices("COGNEE_LOGS_DIR", "logs_root_directory"),
+    )
     monitoring_tool: object = Observer.NONE
     # Default blend weight for the learned feedback signal during graph search.
     # Opt-in by default to preserve existing retrieval behavior.
@@ -44,8 +53,10 @@ class BaseConfig(BaseSettings):
                 self.cache_root_directory = f"s3://{bucket_name}/cognee/cache"
 
         # Require absolute paths for root directories
+        self.cognee_root_directory = ensure_absolute_path(self.cognee_root_directory)
         self.data_root_directory = ensure_absolute_path(self.data_root_directory)
         self.system_root_directory = ensure_absolute_path(self.system_root_directory)
+        self.cache_root_directory = ensure_absolute_path(self.cache_root_directory)
         self.logs_root_directory = ensure_absolute_path(self.logs_root_directory)
 
         # Langfuse rides the existing OTLP pipeline as just another destination.
@@ -100,6 +111,7 @@ class BaseConfig(BaseSettings):
 
     def to_dict(self) -> dict:
         return {
+            "cognee_root_directory": self.cognee_root_directory,
             "data_root_directory": self.data_root_directory,
             "system_root_directory": self.system_root_directory,
             "monitoring_tool": self.monitoring_tool,

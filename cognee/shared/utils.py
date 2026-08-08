@@ -14,6 +14,7 @@ from uuid import NAMESPACE_OID, UUID, uuid4, uuid5
 import aiohttp
 
 from cognee.shared.logging_utils import get_logger
+from cognee.root_dir import get_cognee_root_directory
 
 logger = get_logger()
 
@@ -38,20 +39,21 @@ def create_secure_ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context()
 
 
-_PERSISTENT_ID_DIR = pathlib.Path.home() / ".cognee"
+_PERSISTENT_ID_DIR = get_cognee_root_directory()
 _PERSISTENT_ID_FILE = _PERSISTENT_ID_DIR / ".persistent_id"
 
-# Original anonymous ID location (project root) — kept for backward compat
-_ANON_ID_DIR = pathlib.Path(__file__).parent.parent.parent.resolve()
+# Keep reading the original project-root location when upgrading, but place
+# newly-created IDs with the rest of Cognee's persistent state.
+_LEGACY_ANON_ID_FILE = pathlib.Path(__file__).parent.parent.parent.resolve() / ".anon_id"
+_ANON_ID_DIR = get_cognee_root_directory()
 _ANON_ID_FILE = _ANON_ID_DIR / ".anon_id"
 
 
 def get_anonymous_id() -> str:
     """Get or create the original anonymous ID (project-root based).
 
-    Stored in the project root as .anon_id. This is the original ID
-    that existing telemetry events reference. Kept unchanged for
-    backward compatibility with historical analytics data.
+    Stored in the configured Cognee root as .anon_id. An ID from the legacy
+    project-root location is reused on upgrade.
 
     Can be overridden with TRACKING_ID env var.
     """
@@ -63,7 +65,12 @@ def get_anonymous_id() -> str:
         if not os.path.isdir(str(_ANON_ID_DIR)):
             os.makedirs(str(_ANON_ID_DIR), exist_ok=True)
         if not _ANON_ID_FILE.is_file():
-            anonymous_id = str(uuid4())
+            anonymous_id = (
+                _LEGACY_ANON_ID_FILE.read_text(encoding="utf-8").strip()
+                if _LEGACY_ANON_ID_FILE.is_file()
+                else str(uuid4())
+            )
+            _ANON_ID_DIR.mkdir(parents=True, exist_ok=True)
             _ANON_ID_FILE.write_text(anonymous_id, encoding="utf-8")
         else:
             anonymous_id = _ANON_ID_FILE.read_text(encoding="utf-8").strip()

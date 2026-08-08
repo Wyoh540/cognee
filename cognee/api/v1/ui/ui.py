@@ -169,7 +169,9 @@ def get_frontend_cache_dir() -> Path:
     Each cached frontend is version-specific and will be re-downloaded
     when the cognee package version changes.
     """
-    cache_dir = Path.home() / ".cognee" / "ui-cache"
+    from cognee.root_dir import get_cognee_root_directory
+
+    cache_dir = get_cognee_root_directory() / "ui-cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
 

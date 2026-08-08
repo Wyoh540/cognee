@@ -16,6 +16,7 @@ from typing import Optional, Union
 from fastapi import status
 
 from cognee.exceptions import CogneeSystemError
+from cognee.root_dir import get_cognee_root_directory
 from cognee.shared.logging_utils import get_logger
 
 logger = get_logger("code_graph")
@@ -26,7 +27,7 @@ _FALSEY = {"false", "0", "no", "off"}
 
 _GIT_TIMEOUT_SECONDS = 600
 
-DEFAULT_CLONES_DIR = Path.home() / ".cognee" / "repos"
+DEFAULT_CLONES_DIR = get_cognee_root_directory() / "repos"
 
 
 class CodeRepositoryError(CogneeSystemError):

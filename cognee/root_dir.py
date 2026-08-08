@@ -1,7 +1,25 @@
+import os
 from pathlib import Path
 from typing import Optional
 
 ROOT_DIR = Path(__file__).resolve().parent
+
+
+def get_cognee_root_directory() -> Path:
+    """Return the root used for all local persistent Cognee state.
+
+    ``COGNEE_HOME`` is the canonical setting. ``COGNEE_ROOT_DIRECTORY`` is
+    accepted as a descriptive alias so deployments can use either name.
+    """
+    configured_root = os.getenv("COGNEE_HOME") or os.getenv("COGNEE_ROOT_DIRECTORY")
+    if configured_root:
+        return Path(configured_root).expanduser().resolve()
+    try:
+        home_directory = Path.home()
+    except RuntimeError:
+        # Minimal containers and tests may not define HOME/USERPROFILE.
+        home_directory = ROOT_DIR
+    return (home_directory / ".cognee").resolve()
 
 
 def get_absolute_path(path_from_root: str) -> str:
