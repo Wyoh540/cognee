@@ -1,167 +1,94 @@
+name: cognee
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  init: true
+  env_file:
+    - path: .env
+      required: true
+  networks:
+    - cognee-network
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 services:
   cognee:
-    container_name: cognee
-    restart: always
-    networks:
-      - cognee-network
+    <<: *service-defaults
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
-      # - ./cognee:/app/cognee
-      - .env:/app/.env
-      # Persistent storage for uploaded files (documents, images, etc.)
-      # - cognee_data:/data
-    environment:
-      # Root directories — databases are all Postgres, so system/cache can live in /tmp
-      - DATA_ROOT_DIRECTORY=/data
-      - SYSTEM_ROOT_DIRECTORY=/tmp/cognee_system
-      - CACHE_ROOT_DIRECTORY=/tmp/cognee_cache
-      - COGNEE_LOGS_DIR=/tmp/logs
-      # Skip embedding provider connection test at startup — fastembed runs locally,
-      # but pgvector adapter init can trigger a stale test against the old provider.
-      - COGNEE_SKIP_CONNECTION_TEST=true
-      - DEBUG=false # Change to true if debugging
-      - LOG_LEVEL=INFO
-      # CAUTION: Default '*' allows all origins. Override with specific domains in production.
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
-    extra_hosts:
-      # Allows the container to reach your local machine using "host.docker.internal" instead of "localhost"
-      - "host.docker.internal:host-gateway"
+      - cognee_data:/data
     ports:
-      - 8000:8000
-      - 5678:5678 # Debugger port
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - "${COGNEE_HOST:-127.0.0.1}:${COGNEE_PORT:-8000}:8000"
+    depends_on:
+      - postgres
+      - redis
+    stop_grace_period: 30s
     deploy:
       resources:
         limits:
-          cpus: "4.0"
-          memory: 8GB
+          cpus: ${COGNEE_CPU_LIMIT:-4.0}
+          memory: ${COGNEE_MEMORY_LIMIT:-8G}
 
-  # Cognee MCP Server - Model Context Protocol server for IDE integration
+  frontend:
+    <<: *service-defaults
+    build:
+      context: ./cognee-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_HOST:-127.0.0.1}:${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - cognee
+    stop_grace_period: 20s
+
+  postgres:
+    <<: *service-defaults
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-cognee}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD to a strong password}
+      POSTGRES_DB: ${DB_NAME:-cognee_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: ${POSTGRES_CPU_LIMIT:-2.0}
+          memory: ${POSTGRES_MEMORY_LIMIT:-4G}
+
   cognee-mcp:
-    container_name: cognee-mcp
-    profiles:
-      - mcp
-    networks:
-      - cognee-network
+    <<: *service-defaults
     build:
       context: .
       dockerfile: cognee-mcp/Dockerfile
     command: --no-migration
     volumes:
-      - .env:/app/.env
-      - ./cognee:/app/cognee
-      # Uncomment to allow ingestion of local files from host:
-      # - /path/to/your/data:/data
-    environment:
-      - DEBUG=false # Change to true if debugging
-      - ENV=local
-      - LOG_LEVEL=INFO
-      - TRANSPORT_MODE=sse
-      # Database configuration - should match the main cognee service
-      - DB_PROVIDER=${DB_PROVIDER:-sqlite}
-      - DB_HOST=${DB_HOST:-host.docker.internal}
-      - DB_PORT=${DB_PORT:-5432}
-      - DB_NAME=${DB_NAME:-cognee_db}
-      - DB_USERNAME=${DB_USERNAME:-cognee}
-      - DB_PASSWORD=${DB_PASSWORD:-cognee}
-      # MCP specific configuration
-      - PYTHONUNBUFFERED=1
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - cognee_data:/data
     ports:
-      # Host ports differ from the main `cognee` service so both can run together
-      # (the MCP server still listens on 8000 inside the container).
-      - "8001:8000" # MCP port
-      - "5679:5678" # MCP debugger port
-    deploy:
-      resources:
-        limits:
-          cpus: "2.0"
-          memory: 4GB
-
-  # NOTE: Frontend is a work in progress and supports minimum amount of features required to be functional.
-  # If you want to use Cognee with a UI environment you can integrate the Cognee MCP Server into Cursor / Claude Desktop / Visual Studio Code (through Cline/Roo)
-  frontend:
-    container_name: frontend
-    restart: always
-    environment:
-      - NEXT_PUBLIC_BACKEND_API_URL=${NEXT_PUBLIC_BACKEND_API_URL:-http://cognee:8000}
-      - NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT=true
-    build:
-      context: ./cognee-frontend
-      dockerfile: Dockerfile
-    # volumes:
-    #   - ./cognee-frontend/src:/app/src
-    #   - ./cognee-frontend/public:/app/public
-    ports:
-      - 3000:3000
-      # - 9229:9229 # Debugging
-    networks:
-      - cognee-network
-
-  neo4j:
-    image: neo4j:5.26 # Pinned to 5.x; compatible with neo4j Python driver >=5.28,<6
-    container_name: neo4j
-    restart: always
-    profiles:
-      - neo4j
-    ports:
-      - 7474:7474
-      - 7687:7687
-    environment:
-      - NEO4J_AUTH=neo4j/pleaseletmein
-      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
-    networks:
-      - cognee-network
-
-  postgres:
-    image: pgvector/pgvector:pg17
-    container_name: postgres
-    restart: always
-    environment:
-      POSTGRES_USER: cognee
-      POSTGRES_PASSWORD: cognee
-      POSTGRES_DB: cognee_db
-      # - postgres_data:/var/lib/postgresql/data
-    ports:
-      - 5432:5432
-    networks:
-      - cognee-network
+      - "${MCP_HOST:-127.0.0.1}:${MCP_PORT:-8001}:8000"
+    depends_on:
+      - postgres
+      - cognee
+      - redis
+    stop_grace_period: 30s
 
   redis:
+    <<: *service-defaults
     image: redis:7-alpine
-    container_name: redis
-    profiles:
-      - redis
-    ports:
-      - "6379:6379"
-    networks:
-      - cognee-network
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$CACHE_PASSWORD\""]
     volumes:
       - redis_data:/data
-    command: [ "redis-server", "--appendonly", "yes" ]
-
-  redisinsight:
-    image: redislabs/redisinsight:latest
-    container_name: redisinsight
-    restart: always
-    ports:
-      - "5540:5540"
-    networks:
-      - cognee-network
 
 networks:
   cognee-network:
-    name: cognee-network
+    driver: bridge
 
 volumes:
+  cognee_data:
   postgres_data:
   redis_data:
-  cognee_data:

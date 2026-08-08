@@ -76,7 +76,10 @@ class FastembedEmbeddingEngine(EmbeddingEngine):
         self.tokenizer = self.get_tokenizer()
         self.batch_size = batch_size
         # self.retry_count = 0
-        self.embedding_model = TextEmbedding(model_name=model)
+        # Keep downloaded ONNX models on persistent storage in container deployments.
+        # When unset, FastEmbed retains its native cache-directory behavior.
+        cache_dir = os.getenv("FASTEMBED_CACHE_PATH") or None
+        self.embedding_model = TextEmbedding(model_name=model, cache_dir=cache_dir)
 
         enable_mocking = os.getenv("MOCK_EMBEDDING", "false")
         if isinstance(enable_mocking, bool):

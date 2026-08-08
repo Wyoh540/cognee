@@ -44,7 +44,4 @@ USER cognee
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
-    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
-
 ENTRYPOINT ["/app/entrypoint.sh"]

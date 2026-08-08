@@ -1,3 +1,4 @@
+import os
 from unittest.mock import AsyncMock, Mock, patch
 
 import numpy as np
@@ -139,6 +140,32 @@ async def test_fastembed_raises_when_short_text_still_exceeds_context_window():
             await engine.embed_text(["ab"])
 
         assert embedding_model.embed.call_count == 1
+
+
+def test_fastembed_uses_configured_persistent_cache_path():
+    pytest.importorskip("fastembed")
+
+    with (
+        patch.dict(os.environ, {"FASTEMBED_CACHE_PATH": "/data/models/fastembed"}),
+        patch(
+            "cognee.infrastructure.databases.vector.embeddings.FastembedEmbeddingEngine."
+            "FastembedEmbeddingEngine.get_tokenizer",
+            return_value=Mock(),
+        ),
+        patch(
+            "cognee.infrastructure.databases.vector.embeddings.FastembedEmbeddingEngine."
+            "TextEmbedding",
+        ) as mock_text_embedding,
+    ):
+        from cognee.infrastructure.databases.vector.embeddings.FastembedEmbeddingEngine import (
+            FastembedEmbeddingEngine,
+        )
+
+        FastembedEmbeddingEngine(model="test-model", dimensions=2)
+
+    mock_text_embedding.assert_called_once_with(
+        model_name="test-model", cache_dir="/data/models/fastembed"
+    )
 
 
 @pytest.mark.asyncio
