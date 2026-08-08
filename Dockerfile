@@ -15,6 +15,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync $UV_SYNC_ARGS --frozen --no-install-project --no-dev --no-editable
 
 COPY cognee ./cognee
+COPY cognee_db_workers ./cognee_db_workers
+COPY distributed ./distributed
+COPY kuzu ./kuzu
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync $UV_SYNC_ARGS --frozen --no-dev --no-editable
 

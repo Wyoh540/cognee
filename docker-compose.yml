@@ -67,6 +67,8 @@ services:
       context: .
       dockerfile: cognee-mcp/Dockerfile
     command: --no-migration
+    environment:
+      TRANSPORT_MODE: http
     volumes:
       - cognee_data:/data
     ports:
