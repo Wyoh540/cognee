@@ -5,14 +5,24 @@ from typing import Optional
 from functools import lru_cache
 from cognee.root_dir import get_absolute_path, ensure_absolute_path
 from cognee.modules.observability.observers import Observer
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import pydantic
 
 
 class BaseConfig(BaseSettings):
-    data_root_directory: str = get_absolute_path(".data_storage")
-    system_root_directory: str = get_absolute_path(".cognee_system")
-    cache_root_directory: str = get_absolute_path(".cognee_cache")
+    data_root_directory: str = Field(
+        default_factory=lambda: get_absolute_path(".data_storage"),
+        validation_alias=AliasChoices("DATA_ROOT_DIRECTORY", "data_root_directory"),
+    )
+    system_root_directory: str = Field(
+        default_factory=lambda: get_absolute_path(".cognee_system"),
+        validation_alias=AliasChoices("SYSTEM_ROOT_DIRECTORY", "system_root_directory"),
+    )
+    cache_root_directory: str = Field(
+        default_factory=lambda: get_absolute_path(".cognee_cache"),
+        validation_alias=AliasChoices("CACHE_ROOT_DIRECTORY", "cache_root_directory"),
+    )
     logs_root_directory: str = os.getenv("COGNEE_LOGS_DIR", str(Path.home() / ".cognee" / "logs"))
     monitoring_tool: object = Observer.NONE
     # Default blend weight for the learned feedback signal during graph search.
