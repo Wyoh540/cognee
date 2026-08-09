@@ -21,6 +21,11 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
+      DATA_ROOT_DIRECTORY: ${DATA_ROOT_DIRECTORY:-/data}
+      SYSTEM_ROOT_DIRECTORY: ${SYSTEM_ROOT_DIRECTORY:-/data/system}
+      CACHE_ROOT_DIRECTORY: ${CACHE_ROOT_DIRECTORY:-/data/cache}
+      COGNEE_LOGS_DIR: ${COGNEE_LOGS_DIR:-/data/logs}
+      FASTEMBED_CACHE_PATH: ${FASTEMBED_CACHE_PATH:-/data/models/fastembed}
       DB_HOST: postgres
       DB_PORT: "5432"
       CACHE_HOST: redis

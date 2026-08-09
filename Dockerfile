@@ -27,15 +27,20 @@ FROM python:3.12-slim-bookworm AS runtime
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
-    ENV=production
+    ENV=production \
+    DATA_ROOT_DIRECTORY=/data \
+    SYSTEM_ROOT_DIRECTORY=/data/system \
+    CACHE_ROOT_DIRECTORY=/data/cache \
+    COGNEE_LOGS_DIR=/data/logs \
+    FASTEMBED_CACHE_PATH=/data/models/fastembed
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libpq5 \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system --gid 1001 cognee \
     && adduser --system --uid 1001 --gid 1001 --home /home/cognee cognee \
-    && mkdir -p /data \
-    && chown cognee:cognee /data
+    && mkdir -p /data/system /data/cache /data/logs /data/models/fastembed \
+    && chown -R cognee:cognee /data
 
 WORKDIR /app
 

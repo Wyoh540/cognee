@@ -1,0 +1,17 @@
+{{- if .Values.cognee.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-cognee-data
+  labels:
+    app: {{ .Release.Name }}-cognee
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.cognee.persistence.storageClassName }}
+  storageClassName: {{ .Values.cognee.persistence.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.cognee.persistence.size }}
+{{- end }}

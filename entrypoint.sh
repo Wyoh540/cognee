@@ -15,6 +15,20 @@ echo "Debug port: $DEBUG_PORT"
 echo "HTTP port: $HTTP_PORT"
 echo "Bind address: $BIND_ADDRESS"
 
+# A single /data mount contains every local runtime artifact. Create the
+# configured subdirectories on startup as well, because an empty bind mount
+# hides the directories prepared in the image.
+for persistence_dir in \
+    "${DATA_ROOT_DIRECTORY:-/data}" \
+    "${SYSTEM_ROOT_DIRECTORY:-/data/system}" \
+    "${CACHE_ROOT_DIRECTORY:-/data/cache}" \
+    "${COGNEE_LOGS_DIR:-/data/logs}" \
+    "${FASTEMBED_CACHE_PATH:-/data/models/fastembed}"; do
+    case "$persistence_dir" in
+        /*) mkdir -p "$persistence_dir" ;;
+    esac
+done
+
 # Run Alembic migrations with proper error handling.
 echo "Running database migrations..."
 

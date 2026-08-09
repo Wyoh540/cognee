@@ -14,6 +14,9 @@ spec:
       labels:
         app: {{ .Release.Name }}-cognee
     spec:
+      securityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: cognee
           image: {{ .Values.cognee.image }}
@@ -26,6 +29,16 @@ spec:
               value: {{ .Values.cognee.env.ENV }}
             - name: PYTHONPATH
               value: {{ .Values.cognee.env.PYTHONPATH }}
+            - name: DATA_ROOT_DIRECTORY
+              value: {{ .Values.cognee.env.DATA_ROOT_DIRECTORY | quote }}
+            - name: SYSTEM_ROOT_DIRECTORY
+              value: {{ .Values.cognee.env.SYSTEM_ROOT_DIRECTORY | quote }}
+            - name: CACHE_ROOT_DIRECTORY
+              value: {{ .Values.cognee.env.CACHE_ROOT_DIRECTORY | quote }}
+            - name: COGNEE_LOGS_DIR
+              value: {{ .Values.cognee.env.COGNEE_LOGS_DIR | quote }}
+            - name: FASTEMBED_CACHE_PATH
+              value: {{ .Values.cognee.env.FASTEMBED_CACHE_PATH | quote }}
             - name: VECTOR_DB_PROVIDER
               value: pgvector
             - name: DB_HOST
@@ -51,3 +64,14 @@ spec:
             limits:
               cpu: {{ .Values.cognee.resources.cpu }}
               memory: {{ .Values.cognee.resources.memory }}
+          {{- if .Values.cognee.persistence.enabled }}
+          volumeMounts:
+            - name: cognee-data
+              mountPath: /data
+          {{- end }}
+      {{- if .Values.cognee.persistence.enabled }}
+      volumes:
+        - name: cognee-data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-cognee-data
+      {{- end }}

@@ -8,9 +8,18 @@ cognee:
     PYTHONPATH: "."
     LLM_MODEL: "openai/gpt-4o-mini"
     LLM_PROVIDER: "openai"
+    DATA_ROOT_DIRECTORY: "/data"
+    SYSTEM_ROOT_DIRECTORY: "/data/system"
+    CACHE_ROOT_DIRECTORY: "/data/cache"
+    COGNEE_LOGS_DIR: "/data/logs"
+    FASTEMBED_CACHE_PATH: "/data/models/fastembed"
   resources:
     cpu: "4.0"
     memory: "2Gi"
+  persistence:
+    enabled: true
+    size: "10Gi"
+    storageClassName: ""
 
 # Configuration for the 'postgres' database service
 postgres:
