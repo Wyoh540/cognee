@@ -19,7 +19,7 @@ echo "Bind address: $BIND_ADDRESS"
 # configured subdirectories on startup as well, because an empty bind mount
 # hides the directories prepared in the image.
 for persistence_dir in \
-    "${DATA_ROOT_DIRECTORY:-/data}" \
+    "${DATA_ROOT_DIRECTORY:-/data/uploads}" \
     "${SYSTEM_ROOT_DIRECTORY:-/data/system}" \
     "${CACHE_ROOT_DIRECTORY:-/data/cache}" \
     "${COGNEE_LOGS_DIR:-/data/logs}" \

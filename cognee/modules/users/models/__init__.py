@@ -10,3 +10,5 @@ from .Permission import Permission
 from .Tenant import Tenant
 from .ACL import ACL
 from .PrincipalConfiguration import PrincipalConfiguration
+from .OIDCProvider import OIDCProvider
+from .OIDCIdentity import OIDCIdentity

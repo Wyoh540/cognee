@@ -44,6 +44,8 @@ from cognee.api.v1.users.routers import (
     get_configuration_router,
     get_user_id_by_email_router,
     get_admin_router,
+    get_oidc_router,
+    get_oidc_admin_router,
 )
 from cognee.api.v1.api_keys.routers import get_api_key_management_router
 from cognee.api.v1.agents.routers import get_agents_router
@@ -204,6 +206,7 @@ async def exception_handler(_: Request, exc: CogneeApiError) -> JSONResponse:
 
 
 app.include_router(get_auth_router(), prefix="/api/v1/auth", tags=["auth"])
+app.include_router(get_oidc_router(), prefix="/api/v1/auth/oidc", tags=["auth", "oidc"])
 
 app.include_router(
     get_register_router(),
@@ -312,6 +315,11 @@ app.include_router(
     get_admin_router(),
     prefix="/api/v1/admin",
     tags=["admin"],
+)
+app.include_router(
+    get_oidc_admin_router(),
+    prefix="/api/v1/admin",
+    tags=["admin", "oidc"],
 )
 
 app.include_router(get_remember_router(), prefix="/api/v1/remember", tags=["remember"])

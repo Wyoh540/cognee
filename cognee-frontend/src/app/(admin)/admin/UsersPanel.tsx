@@ -2,32 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Text, Button, Modal, TextInput, PasswordInput, Checkbox, Stack, Group } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
 import { createUser, getAllUsers, patchUser, type AdminUser } from "@/modules/admin/adminApi";
 import SkeletonBar from "@/ui/elements/SkeletonBar";
 import { PlusIcon } from "@/ui/icons";
-
-const C = {
-  surfaceBg: "rgba(255,255,255,0.06)",
-  surfaceBorder: "1px solid rgba(255,255,255,0.1)",
-  textPrimary: "#EDECEA",
-  textMuted: "rgba(237,236,234,0.55)",
-  textDim: "rgba(237,236,234,0.35)",
-  textExtraDim: "rgba(237,236,234,0.3)",
-  accent: "#BC9BFF",
-  accentBg: "rgba(188,155,255,0.18)",
-  danger: "#EF4444",
-  dangerBg: "rgba(239,68,68,0.15)",
-  green: "#34D399",
-} as const;
-
-function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <div style={{ background: C.surfaceBg, backdropFilter: "blur(12px)", border: C.surfaceBorder, borderRadius: 12, padding: "1.25rem 1.5rem", ...style }}>{children}</div>;
-}
-function notifyOk(msg: string) { notifications.show({ message: msg, color: "green", autoClose: 3500 }); }
-function notifyErr(msg: string) {
-  notifications.show({ title: "Error", message: msg, color: "red", autoClose: 6000 });
-}
+import { AdminCard as Card, ADMIN_COLORS as C, adminCheckboxStyles, adminInputStyles, adminModalStyles, adminPasswordInputStyles, adminPrimaryButtonStyles, notifyAdminError as notifyErr, notifyAdminSuccess as notifyOk } from "./AdminUI";
 
 function PersonIcon({ size = 20 }: { size?: number }) {
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="rgba(237,236,234,0.4)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="8" r="4" /><path d="M5.5 21a6.5 6.5 0 0113 0" /></svg>);
@@ -111,7 +89,7 @@ export default function UsersPanel() {
         <Button
           onClick={() => setCreateOpen(true)}
           leftSection={<PlusIcon width={12} height={12} color="#fff" />}
-          styles={{ root: { flexShrink: 0, background: "linear-gradient(135deg, #6510F4, #8B5CF6)", borderRadius: 8, border: "none", height: 40, padding: "0 18px", fontSize: 13, fontWeight: 600, color: "#fff" } }}
+          styles={adminPrimaryButtonStyles}
         >
           New user
         </Button>
@@ -168,14 +146,7 @@ export default function UsersPanel() {
         onClose={closeCreate}
         title="Create user"
         centered
-        styles={{
-          overlay: { backgroundColor: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)" },
-          content: { background: "#151416", color: C.textPrimary, border: C.surfaceBorder, borderRadius: 12 },
-          header: { background: "#151416", borderBottom: "1px solid rgba(255,255,255,0.08)" },
-          body: { paddingTop: 20 },
-          title: { color: C.textPrimary, fontWeight: 600 },
-          close: { color: C.textMuted },
-        }}
+        styles={adminModalStyles}
       >
         <Stack gap="md">
           <TextInput
@@ -185,30 +156,30 @@ export default function UsersPanel() {
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
             autoFocus
-            styles={{ label: { color: C.textMuted, marginBottom: 6 }, input: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textPrimary, borderRadius: 8 } }}
+            styles={adminInputStyles}
           />
           <PasswordInput
             label="Password"
             required
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
-            styles={{ label: { color: C.textMuted, marginBottom: 6 }, input: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textPrimary, borderRadius: 8 }, innerInput: { color: C.textPrimary } }}
+            styles={adminPasswordInputStyles}
           />
           <Checkbox
             label="Super administrator"
             checked={isSuperuser}
             onChange={(e) => setIsSuperuser(e.currentTarget.checked)}
-            styles={{ label: { color: C.textPrimary }, input: { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.18)" } }}
+            styles={adminCheckboxStyles}
           />
           <Checkbox
             label="Active"
             checked={isActive}
             onChange={(e) => setIsActive(e.currentTarget.checked)}
-            styles={{ label: { color: C.textPrimary }, input: { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.18)" } }}
+            styles={adminCheckboxStyles}
           />
           <Group justify="flex-end" mt="xs">
             <Button variant="subtle" onClick={closeCreate} disabled={creating} styles={{ root: { color: C.textMuted } }}>Cancel</Button>
-            <Button onClick={handleCreate} loading={creating} disabled={!email.trim() || !password} styles={{ root: { background: "linear-gradient(135deg, #6510F4, #8B5CF6)", borderRadius: 8 } }}>Create user</Button>
+            <Button onClick={handleCreate} loading={creating} disabled={!email.trim() || !password} styles={adminPrimaryButtonStyles}>Create user</Button>
           </Group>
         </Stack>
       </Modal>

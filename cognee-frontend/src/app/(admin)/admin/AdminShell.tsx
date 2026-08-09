@@ -11,6 +11,7 @@ import ProfileMenu from "@/ui/layout/ProfileMenu";
 const navigation = [
   { href: "/admin", label: "Workspaces", exact: true },
   { href: "/admin/users", label: "Users", exact: false },
+  { href: "/admin/oidc", label: "OIDC", exact: false },
 ];
 
 function GridIcon() {

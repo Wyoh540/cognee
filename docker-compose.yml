@@ -21,7 +21,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      DATA_ROOT_DIRECTORY: ${DATA_ROOT_DIRECTORY:-/data}
+      DATA_ROOT_DIRECTORY: ${DATA_ROOT_DIRECTORY:-/data/uploads}
       SYSTEM_ROOT_DIRECTORY: ${SYSTEM_ROOT_DIRECTORY:-/data/system}
       CACHE_ROOT_DIRECTORY: ${CACHE_ROOT_DIRECTORY:-/data/cache}
       COGNEE_LOGS_DIR: ${COGNEE_LOGS_DIR:-/data/logs}
@@ -34,6 +34,7 @@ services:
       GRAPH_DATABASE_PORT: "5432"
       VECTOR_DB_HOST: postgres
       VECTOR_DB_PORT: "5432"
+      OIDC_FRONTEND_REDIRECT_URL: ${OIDC_FRONTEND_REDIRECT_URL:-http://127.0.0.1:3000/}
     volumes:
       - cognee_data:/data
     ports:
@@ -53,6 +54,8 @@ services:
     build:
       context: ./cognee-frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_LOCAL_API_URL: ${NEXT_PUBLIC_LOCAL_API_URL:-http://127.0.0.1:8000}
     environment:
       # This value is used by browser-side code, so it must be reachable from
       # the user's browser rather than only from the Compose network.

@@ -8,7 +8,7 @@ cognee:
     PYTHONPATH: "."
     LLM_MODEL: "openai/gpt-4o-mini"
     LLM_PROVIDER: "openai"
-    DATA_ROOT_DIRECTORY: "/data"
+    DATA_ROOT_DIRECTORY: "/data/uploads"
     SYSTEM_ROOT_DIRECTORY: "/data/system"
     CACHE_ROOT_DIRECTORY: "/data/cache"
     COGNEE_LOGS_DIR: "/data/logs"

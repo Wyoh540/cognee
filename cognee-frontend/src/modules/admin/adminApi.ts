@@ -37,6 +37,37 @@ export interface CreateUserBody {
   is_active: boolean;
 }
 
+export interface OIDCProvider {
+  id: string;
+  name: string;
+  slug: string;
+  issuer: string;
+  client_id: string;
+  client_secret_configured: boolean;
+  scopes: string;
+  enabled: boolean;
+}
+
+export type OIDCProviderBody = Omit<OIDCProvider, "id" | "client_secret_configured"> & {
+  client_secret?: string;
+};
+
+export async function getOIDCProviders(): Promise<OIDCProvider[]> {
+  const res = await localFetch("/v1/admin/oidc/providers");
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to list OIDC providers");
+  return res.json();
+}
+
+export async function saveOIDCProvider(body: OIDCProviderBody, id?: string): Promise<OIDCProvider> {
+  const res = await localFetch(`/v1/admin/oidc/providers${id ? `/${id}` : ""}`, {
+    method: id ? "PUT" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Failed to save OIDC provider");
+  return res.json();
+}
+
 export async function getAllTenants(): Promise<AdminTenant[]> {
   const res = await localFetch("/v1/admin/tenants");
   if (!res.ok) {

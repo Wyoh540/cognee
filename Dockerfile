@@ -28,7 +28,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     ENV=production \
-    DATA_ROOT_DIRECTORY=/data \
+    DATA_ROOT_DIRECTORY=/data/uploads \
     SYSTEM_ROOT_DIRECTORY=/data/system \
     CACHE_ROOT_DIRECTORY=/data/cache \
     COGNEE_LOGS_DIR=/data/logs \
@@ -39,7 +39,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system --gid 1001 cognee \
     && adduser --system --uid 1001 --gid 1001 --home /home/cognee cognee \
-    && mkdir -p /data/system /data/cache /data/logs /data/models/fastembed \
+    && mkdir -p /data/uploads /data/system /data/cache /data/logs /data/models/fastembed \
     && chown -R cognee:cognee /data
 
 WORKDIR /app

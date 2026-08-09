@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Flex, Text, Title, TextInput, PasswordInput, Button } from "@mantine/core";
 import AuthCard from "@/ui/elements/Auth/AuthCard";
 import Link from "next/link";
@@ -12,6 +12,14 @@ export default function SignInForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [oidcProviders, setOidcProviders] = useState<{ name: string; slug: string }[]>([]);
+
+  useEffect(() => {
+    fetch(`${apiUrl}/api/v1/auth/oidc/providers`)
+      .then((response) => response.ok ? response.json() : [])
+      .then((providers) => setOidcProviders(Array.isArray(providers) ? providers : []))
+      .catch(() => setOidcProviders([]));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -131,6 +139,11 @@ export default function SignInForm() {
           </Text>
         </Button>
       </form>
+
+      {oidcProviders.length > 0 && <Flex className="w-full flex-col gap-2">
+        <Text size="xs" ta="center" c="dimmed">or continue with SSO</Text>
+        {oidcProviders.map((provider) => <Button key={provider.slug} component="a" href={`${apiUrl}/api/v1/auth/oidc/${encodeURIComponent(provider.slug)}/login`} variant="default" fullWidth>Continue with {provider.name}</Button>)}
+      </Flex>}
 
       <Text size="xs" className="!text-[#EDECEA]/60 !font-light">
         Don&apos;t have an account?{" "}

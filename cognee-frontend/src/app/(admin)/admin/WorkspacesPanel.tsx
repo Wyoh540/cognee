@@ -2,32 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Text, TextInput, Button } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
 import { modals } from "@mantine/modals";
 import { getAllTenants, deleteTenant, getTenantDetail, createWorkspaceByName, type AdminTenant, type AdminTenantDetail } from "@/modules/admin/adminApi";
 import SkeletonBar from "@/ui/elements/SkeletonBar";
 import { PlusIcon, DeleteIcon } from "@/ui/icons";
-
-const C = {
-  surfaceBg: "rgba(255,255,255,0.06)",
-  surfaceBorder: "1px solid rgba(255,255,255,0.1)",
-  textPrimary: "#EDECEA",
-  textMuted: "rgba(237,236,234,0.55)",
-  textDim: "rgba(237,236,234,0.35)",
-  textExtraDim: "rgba(237,236,234,0.3)",
-  accent: "#BC9BFF",
-  accentBg: "rgba(188,155,255,0.18)",
-  accentBorder: "1px solid rgba(188,155,255,0.3)",
-  danger: "#EF4444",
-  dangerBg: "rgba(239,68,68,0.15)",
-} as const;
-
-function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <div style={{ background: C.surfaceBg, backdropFilter: "blur(12px)", border: C.surfaceBorder, borderRadius: 12, padding: "1.25rem 1.5rem", ...style }}>{children}</div>;
-}
-
-function notifyOk(msg: string) { notifications.show({ message: msg, color: "green", autoClose: 3500 }); }
-function notifyErr(msg: string) { notifications.show({ title: "Error", message: msg, color: "red", autoClose: 6000 }); }
+import { AdminCard as Card, ADMIN_COLORS as C, adminPrimaryButtonStyles, notifyAdminError as notifyErr, notifyAdminSuccess as notifyOk } from "./AdminUI";
 
 function BuildingIcon() {
   return (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="4" y="2" width="16" height="20" rx="2" /><line x1="9" y1="6" x2="9" y2="6.01" /><line x1="15" y1="6" x2="15" y2="6.01" /></svg>);
@@ -78,7 +57,7 @@ export default function WorkspacesPanel() {
           styles={{ input: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: C.textPrimary, fontSize: 14, height: 40 } }} />
       </div>
       <Button onClick={handleCreate} loading={creating} disabled={!createName.trim() || creating} leftSection={<PlusIcon width={12} height={12} color="#fff" />}
-        styles={{ root: { background: "linear-gradient(135deg, #6510F4, #8B5CF6)", borderRadius: 8, border: "none", height: 40, padding: "0 18px", fontSize: 13, fontWeight: 600, color: "#fff" } }}>
+        styles={adminPrimaryButtonStyles}>
         Create Workspace</Button></div></Card>
     <Card style={{ flex: 1, overflow: "auto" }}>
     {loading ? (<div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "0.5rem 0" }}>
