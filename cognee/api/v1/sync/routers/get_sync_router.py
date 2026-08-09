@@ -132,7 +132,7 @@ def get_sync_router() -> APIRouter:
 
             # Retrieve existing dataset and check permissions
             datasets = await get_specific_user_permission_datasets(
-                user.id, "write", request.dataset_ids if request.dataset_ids else None
+                user, "write", request.dataset_ids if request.dataset_ids else None
             )
 
             # Execute new cloud sync operation for all datasets

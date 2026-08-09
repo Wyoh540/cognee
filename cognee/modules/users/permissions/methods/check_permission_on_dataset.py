@@ -24,4 +24,4 @@ async def check_permission_on_dataset(user: User, permission_type: str, dataset_
     if user is None:
         user = await get_default_user()
 
-    await get_specific_user_permission_datasets(user.id, permission_type, [dataset_id])
+    await get_specific_user_permission_datasets(user, permission_type, [dataset_id])

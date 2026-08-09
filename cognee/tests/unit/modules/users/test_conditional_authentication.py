@@ -76,6 +76,94 @@ class TestConditionalAuthentication:
 
         assert result == mock_authenticated_user
 
+    @pytest.mark.asyncio
+    @patch.object(gau_mod, "get_user", new_callable=AsyncMock)
+    async def test_workspace_header_overrides_tenant_for_request(self, mock_get_user):
+        user_id = uuid4()
+        tenant_id = uuid4()
+        authenticated_user = User(
+            id=user_id,
+            email="user@example.com",
+            hashed_password="hashed",
+            is_active=True,
+            is_verified=True,
+        )
+        request_user = User(
+            id=user_id,
+            email="user@example.com",
+            hashed_password="hashed",
+            is_active=True,
+            is_verified=True,
+        )
+        mock_get_user.return_value = request_user
+
+        session = SimpleNamespace(scalar=AsyncMock(return_value=SimpleNamespace()))
+
+        class SessionContext:
+            async def __aenter__(self):
+                return session
+
+            async def __aexit__(self, *_args):
+                return None
+
+        engine = SimpleNamespace(get_async_session=lambda: SessionContext())
+        with patch(
+            "cognee.infrastructure.databases.relational.get_relational_engine",
+            return_value=engine,
+        ):
+            result = await gau_mod.get_authenticated_user(
+                tenant=str(tenant_id), user=authenticated_user
+            )
+
+        assert result.tenant_id == tenant_id
+        session.scalar.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    @patch.object(gau_mod, "get_user", new_callable=AsyncMock)
+    async def test_workspace_header_rejects_non_member(self, mock_get_user):
+        authenticated_user = User(
+            id=uuid4(),
+            email="user@example.com",
+            hashed_password="hashed",
+            is_active=True,
+            is_verified=True,
+        )
+        mock_get_user.return_value = authenticated_user
+        session = SimpleNamespace(scalar=AsyncMock(return_value=None))
+
+        class SessionContext:
+            async def __aenter__(self):
+                return session
+
+            async def __aexit__(self, *_args):
+                return None
+
+        engine = SimpleNamespace(get_async_session=lambda: SessionContext())
+        with patch(
+            "cognee.infrastructure.databases.relational.get_relational_engine",
+            return_value=engine,
+        ):
+            with pytest.raises(Exception) as error:
+                await gau_mod.get_authenticated_user(tenant=str(uuid4()), user=authenticated_user)
+
+        assert error.value.status_code == 403
+
+    @pytest.mark.asyncio
+    @patch.object(gau_mod, "get_user", new_callable=AsyncMock)
+    async def test_workspace_header_rejects_invalid_uuid(self, mock_get_user):
+        authenticated_user = User(
+            id=uuid4(),
+            email="user@example.com",
+            hashed_password="hashed",
+            is_active=True,
+            is_verified=True,
+        )
+        mock_get_user.return_value = authenticated_user
+        with pytest.raises(Exception) as error:
+            await gau_mod.get_authenticated_user(tenant="not-a-uuid", user=authenticated_user)
+
+        assert error.value.status_code == 400
+
 
 class TestConditionalAuthenticationIntegration:
     """Integration tests that test the full authentication flow."""

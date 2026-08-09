@@ -91,7 +91,7 @@ def get_permissions_router() -> APIRouter:
             principal_id,
             [dataset_id for dataset_id in dataset_ids],
             permission_name,
-            user.id,
+            user,
         )
 
         return JSONResponse(
@@ -134,7 +134,7 @@ def get_permissions_router() -> APIRouter:
             principal_id,
             [dataset_id for dataset_id in dataset_ids],
             permission_name,
-            user.id,
+            user,
         )
 
         return JSONResponse(
@@ -442,7 +442,7 @@ def get_permissions_router() -> APIRouter:
     @permissions_router.post("/tenants/select")
     async def select_tenant(payload: SelectTenantDTO, user: User = Depends(get_authenticated_user)):
         """
-        Select current tenant.
+        Validate a workspace selection.
 
         This endpoint selects a tenant with the specified UUID. Tenants are used
         to organize users and resources in multi-tenant environments, providing
@@ -467,11 +467,16 @@ def get_permissions_router() -> APIRouter:
 
         from cognee.modules.users.tenants.methods import select_tenant as select_tenant_method
 
-        await select_tenant_method(user_id=user.id, tenant_id=payload.tenant_id)
+        await select_tenant_method(user_id=user.id, tenant_id=payload.tenant_id, persist=False)
 
         return JSONResponse(
             status_code=200,
-            content={"message": "Tenant selected.", "tenant_id": str(payload.tenant_id)},
+            content={
+                "message": (
+                    "Workspace selection validated. Send X-Cognee-Tenant-Id on subsequent requests."
+                ),
+                "tenant_id": str(payload.tenant_id),
+            },
         )
 
     @permissions_router.get("/tenants/{tenant_id}/roles")

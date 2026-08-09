@@ -3,6 +3,7 @@ import handleServerErrors from "@/utils/handleServerErrors";
 const localApiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8000";
 
 let apiKey: string | null = process.env.NEXT_PUBLIC_COGWIT_API_KEY || null;
+let activeTenantId: string | null = null;
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
@@ -12,6 +13,9 @@ export default async function localFetch(url: URL | RequestInfo, options: Reques
   const authHeaders: Record<string, string> = {};
   if (apiKey) {
     authHeaders["X-Api-Key"] = apiKey;
+  }
+  if (activeTenantId) {
+    authHeaders["X-Cognee-Tenant-Id"] = activeTenantId;
   }
 
   // The local backend mounts API routes under /api/v1.
@@ -70,4 +74,9 @@ export default async function localFetch(url: URL | RequestInfo, options: Reques
 
 export const setApiKey = (newApiKey: string) => {
   apiKey = newApiKey;
+};
+
+/** Set the workspace applied to subsequent API requests in this browser tab. */
+export const setActiveTenantId = (tenantId: string | null) => {
+  activeTenantId = tenantId;
 };

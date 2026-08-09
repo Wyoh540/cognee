@@ -60,6 +60,9 @@ services:
       # This value is used by browser-side code, so it must be reachable from
       # the user's browser rather than only from the Compose network.
       NEXT_PUBLIC_LOCAL_API_URL: ${NEXT_PUBLIC_LOCAL_API_URL:-http://127.0.0.1:8000}
+      # Next.js route handlers run inside the frontend container and must use
+      # the backend service name on the Compose network.
+      COGNEE_INTERNAL_API_URL: ${COGNEE_INTERNAL_API_URL:-http://cognee:8000}
     ports:
       - "${FRONTEND_HOST:-127.0.0.1}:${FRONTEND_PORT:-3000}:3000"
     depends_on:

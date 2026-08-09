@@ -9,6 +9,7 @@ import WorkspacePicker from "@/ui/layout/WorkspacePicker";
 import PageLoading from "@/ui/elements/PageLoading";
 import createWorkspace from "./createWorkspace";
 import persistSelectedTenant from "./persistSelectedTenant";
+import { setActiveTenantId } from "@/modules/instances/localFetch";
 
 const localApiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8000";
 
@@ -140,11 +141,9 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 
   const switchTenantFn = useCallback(async (tenantId: string, tenantName?: string) => {
     try {
-      await apiFetch("/v1/permissions/tenants/select", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenantId }),
-      });
+      // Workspace selection is tab/request scoped. Do not persist it to
+      // User.tenant_id: doing so makes concurrent tabs and API clients race.
+      setActiveTenantId(tenantId);
       persistSelectedTenant(tenantId, tenantName);
       const found = availableTenants.find((t) => t.id === tenantId);
       setTenant({ tenant_id: tenantId, tenant_name: found?.name ?? "" });
@@ -170,9 +169,11 @@ export function LocalProvider({ children }: { children: React.ReactNode }) {
 
         setAvailableTenants(result.availableTenants);
         if (result.autoSelect) {
+          setActiveTenantId(result.autoSelect.id);
           setTenant({ tenant_id: result.autoSelect.id, tenant_name: result.autoSelect.name });
           setTenantReady(true);
         } else {
+          setActiveTenantId(null);
           setShowPicker(true);
         }
       } catch (err) {

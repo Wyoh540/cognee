@@ -22,15 +22,18 @@ async def get_all_user_permission_datasets(user: User, permission_type: str) -> 
     # Get all datasets User has explicit access to
     datasets.extend(await get_principal_datasets(user, permission_type))
 
-    # Get all tenants user is a part of
+    # Only principals that belong to the active tenant may contribute access.
+    # A user can be a member of several tenants, but request-scoped tenant
+    # selection must not combine their tenant or role ACLs.
     tenants = await user.awaitable_attrs.tenants
-    for tenant in tenants:
-        # Get all datasets all tenant members have access to
-        datasets.extend(await get_principal_datasets(tenant, permission_type))
+    active_tenant = next((tenant for tenant in tenants if tenant.id == user.tenant_id), None)
+    if active_tenant is not None:
+        datasets.extend(await get_principal_datasets(active_tenant, permission_type))
 
-        # Get all datasets accessible by roles user is a part of
         roles = await user.awaitable_attrs.roles
         for role in roles:
+            if role.tenant_id != user.tenant_id:
+                continue
             datasets.extend(await get_principal_datasets(role, permission_type))
 
     # Deduplicate datasets with same ID

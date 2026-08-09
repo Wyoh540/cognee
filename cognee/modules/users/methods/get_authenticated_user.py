@@ -1,6 +1,7 @@
 import os
 from typing import Optional
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
+from sqlalchemy import select
 from ..models import User
 from ..get_fastapi_users import get_fastapi_users
 from .get_default_user import get_default_user
@@ -80,7 +81,15 @@ fastapi_users = get_fastapi_users()
 _auth_dependency = fastapi_users.current_user(active=True, optional=not REQUIRE_AUTHENTICATION)
 
 
+async def get_tenant_header(
+    tenant_header: Optional[str] = Header(default=None, alias="X-Cognee-Tenant-Id"),
+) -> Optional[str]:
+    """Return the request's explicit tenant selector, when present."""
+    return tenant_header
+
+
 async def get_authenticated_user(
+    tenant: Optional[str] = Depends(get_tenant_header),
     user: Optional[User] = Depends(_auth_dependency),
 ) -> User:
     """
@@ -106,5 +115,43 @@ async def get_authenticated_user(
         # outlive the request) can access user.tenants / user.roles without
         # DetachedInstanceError.
         user = await get_user(user.id)
+
+    # The active workspace is request-scoped. Persisting it on User.tenant_id
+    # makes two browser tabs/devices race with each other, so an explicit
+    # workspace header only overrides this in-memory instance for this request.
+    # User.tenant_id remains a backwards-compatible default when the header is
+    # absent.
+    # Direct SDK/tests call this dependency as a regular function, in which
+    # case FastAPI has not replaced the Header descriptor with a value.
+    if tenant is not None and not isinstance(tenant, str):
+        tenant = None
+
+    if tenant:
+        from uuid import UUID
+
+        from cognee.infrastructure.databases.relational import get_relational_engine
+        from cognee.modules.users.models.UserTenant import UserTenant
+
+        try:
+            active_tenant_id = UUID(tenant)
+        except ValueError as error:
+            raise HTTPException(
+                status_code=400, detail="Invalid X-Cognee-Tenant-Id header."
+            ) from error
+
+        db_engine = get_relational_engine()
+        async with db_engine.get_async_session() as session:
+            membership = await session.scalar(
+                select(UserTenant).where(
+                    UserTenant.user_id == user.id,
+                    UserTenant.tenant_id == active_tenant_id,
+                )
+            )
+
+        if membership is None:
+            # Avoid revealing whether an arbitrary workspace id exists.
+            raise HTTPException(status_code=403, detail="User is not a member of this workspace.")
+
+        user.tenant_id = active_tenant_id
 
     return user

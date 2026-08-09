@@ -50,7 +50,7 @@ def _range_since(range_key: _RangeLiteral) -> Optional[datetime]:
 async def _permitted_dataset_ids_for(user: User) -> list[UUIDType]:
     """Return the UUIDs of datasets this user can read (empty on none)."""
     try:
-        datasets = await get_specific_user_permission_datasets(user.id, "read", None)
+        datasets = await get_specific_user_permission_datasets(user, "read", None)
         return [ds.id for ds in datasets] if datasets else []
     except PermissionDeniedError:
         return []

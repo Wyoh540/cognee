@@ -3,11 +3,15 @@ from typing import Union, List
 from cognee.modules.users.permissions.methods import get_principal
 from cognee.modules.users.permissions.methods import give_permission_on_dataset
 from cognee.modules.users.permissions.methods import get_specific_user_permission_datasets
+from cognee.modules.users.models import User
 from uuid import UUID
 
 
 async def authorized_give_permission_on_datasets(
-    principal_id: UUID, dataset_ids: Union[List[UUID], UUID], permission_name: str, owner_id: UUID
+    principal_id: UUID,
+    dataset_ids: Union[List[UUID], UUID],
+    permission_name: str,
+    owner: Union[User, UUID],
 ):
     """
         Give permission to certain datasets to a user.
@@ -16,7 +20,7 @@ async def authorized_give_permission_on_datasets(
         principal_id: Id of user to whom datasets are shared
         dataset_ids: Ids of datasets to share
         permission_name: Name of permission to give
-        owner_id: Id of the request owner
+        owner: Request-scoped owner, or owner ID for backwards compatibility
 
     Returns:
         None
@@ -28,7 +32,7 @@ async def authorized_give_permission_on_datasets(
     principal = await get_principal(principal_id)
 
     # Check if request owner has permission to share dataset access
-    datasets = await get_specific_user_permission_datasets(owner_id, "share", dataset_ids)
+    datasets = await get_specific_user_permission_datasets(owner, "share", dataset_ids)
 
     # TODO: Do we want to enforce sharing of datasets to only be between users of the same tenant?
     for dataset in datasets:

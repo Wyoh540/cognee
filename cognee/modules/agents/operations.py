@@ -56,7 +56,7 @@ def _entry_to_dict(entry: Any) -> dict[str, Any]:
 
 async def _readable_datasets_for(user: User) -> list[Any]:
     try:
-        return await get_specific_user_permission_datasets(user.id, "read", None)
+        return await get_specific_user_permission_datasets(user, "read", None)
     except PermissionDeniedError:
         return []
     except Exception as error:

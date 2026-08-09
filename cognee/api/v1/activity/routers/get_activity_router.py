@@ -31,7 +31,7 @@ def get_activity_router() -> APIRouter:
 
         try:
             permitted_datasets = await get_specific_user_permission_datasets(
-                user.id, "read", [dataset_id] if dataset_id else None
+                user, "read", [dataset_id] if dataset_id else None
             )
         except PermissionDeniedError:
             # For list requests, treat "no accessible datasets" as an empty activity feed.
@@ -278,7 +278,7 @@ def get_activity_router() -> APIRouter:
         from sqlalchemy import select
         from datetime import datetime, timezone
 
-        dataset_ids = await get_specific_user_permission_datasets(user.id, "read", [dataset_id])
+        dataset_ids = await get_specific_user_permission_datasets(user, "read", [dataset_id])
         dataset_id = dataset_ids[0].id
 
         db_engine = get_relational_engine()

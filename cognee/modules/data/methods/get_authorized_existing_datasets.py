@@ -28,7 +28,7 @@ async def get_authorized_existing_datasets(
         # If dataset_ids are provided filter these datasets based on what user has permission for.
         if dataset_ids:
             existing_datasets = await get_specific_user_permission_datasets(
-                user.id, permission_type, dataset_ids
+                user, permission_type, dataset_ids
             )
         else:
             existing_datasets = []

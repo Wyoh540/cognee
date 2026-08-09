@@ -61,7 +61,7 @@ async def ingest_data(
 
         if dataset_id:
             # Retrieve existing dataset
-            dataset = await get_specific_user_permission_datasets(user.id, "write", [dataset_id])
+            dataset = await get_specific_user_permission_datasets(user, "write", [dataset_id])
             # Convert from list to Dataset element
             if isinstance(dataset, list):
                 dataset = dataset[0]
