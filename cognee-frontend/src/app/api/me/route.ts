@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const localApiUrl = process.env.NEXT_PUBLIC_LOCAL_API_URL || "http://localhost:8000";
+const localApiUrl =
+  process.env.COGNEE_INTERNAL_API_URL ||
+  process.env.NEXT_PUBLIC_LOCAL_API_URL ||
+  "http://localhost:8000";
 
 // Proxies GET /me to the cognee backend.
 // Also serves the UserProvider's useQuery(["me"], ...) which currently has no
@@ -11,8 +14,10 @@ export async function GET(request: NextRequest) {
   if (cookie) headers["cookie"] = cookie;
   const authHeader = request.headers.get("authorization");
   if (authHeader) headers["authorization"] = authHeader;
+  const apiKey = request.headers.get("x-api-key");
+  if (apiKey) headers["x-api-key"] = apiKey;
 
-  if (!cookie && !authHeader) {
+  if (!cookie && !authHeader && !apiKey) {
     try {
       const loginResp = await fetch(`${localApiUrl}/api/v1/auth/login`, {
         method: "POST",
@@ -31,8 +36,9 @@ export async function GET(request: NextRequest) {
   try {
     const response = await fetch(`${localApiUrl}/api/v1/auth/me`, { headers });
     if (!response.ok) {
+      const body = await response.text().catch(() => "(unreadable)");
       return NextResponse.json(
-        { error: `Backend returned ${response.status}` },
+        { error: `Backend returned ${response.status}`, detail: body },
         { status: response.status },
       );
     }
