@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Text, Button } from "@mantine/core";
+import { Text, Button, Modal, TextInput, PasswordInput, Checkbox, Stack, Group } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { getAllUsers, patchUser, type AdminUser } from "@/modules/admin/adminApi";
+import { createUser, getAllUsers, patchUser, type AdminUser } from "@/modules/admin/adminApi";
 import SkeletonBar from "@/ui/elements/SkeletonBar";
+import { PlusIcon } from "@/ui/icons";
 
 const C = {
   surfaceBg: "rgba(255,255,255,0.06)",
@@ -41,6 +42,12 @@ export default function UsersPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState<Record<string, string | null>>({});
+  const [createOpen, setCreateOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSuperuser, setIsSuperuser] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true); setError(null);
@@ -66,9 +73,49 @@ export default function UsersPanel() {
     }
   };
 
+  const closeCreate = () => {
+    if (creating) return;
+    setCreateOpen(false);
+    setEmail("");
+    setPassword("");
+    setIsSuperuser(false);
+    setIsActive(true);
+  };
+
+  const handleCreate = async () => {
+    if (!email.trim() || !password) return;
+    setCreating(true);
+    try {
+      await createUser({ email: email.trim(), password, is_superuser: isSuperuser, is_active: isActive });
+      notifyOk("User created.");
+      setCreating(false);
+      closeCreate();
+      await loadUsers();
+    } catch (e) {
+      notifyErr(e instanceof Error ? e.message : "Failed to create user.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const COLUMNS = "1fr auto auto auto";
   return (
     <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, marginBottom: 24 }}>
+        <div>
+          <h1 className="m-0 text-xl font-medium text-[#EDECEA]">Users</h1>
+          <Text size="sm" style={{ color: C.textMuted, marginTop: 4 }}>
+            Manage platform access and super administrator permissions.
+          </Text>
+        </div>
+        <Button
+          onClick={() => setCreateOpen(true)}
+          leftSection={<PlusIcon width={12} height={12} color="#fff" />}
+          styles={{ root: { flexShrink: 0, background: "linear-gradient(135deg, #6510F4, #8B5CF6)", borderRadius: 8, border: "none", height: 40, padding: "0 18px", fontSize: 13, fontWeight: 600, color: "#fff" } }}
+        >
+          New user
+        </Button>
+      </div>
       <Card style={{ flex: 1, overflow: "auto" }}>
         {loading ? (<div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "0.5rem 0" }}>
           {[1, 2, 3].map((i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
@@ -116,6 +163,55 @@ export default function UsersPanel() {
           })}
         </div>)}
       </Card>
+      <Modal
+        opened={createOpen}
+        onClose={closeCreate}
+        title="Create user"
+        centered
+        styles={{
+          overlay: { backgroundColor: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)" },
+          content: { background: "#151416", color: C.textPrimary, border: C.surfaceBorder, borderRadius: 12 },
+          header: { background: "#151416", borderBottom: "1px solid rgba(255,255,255,0.08)" },
+          body: { paddingTop: 20 },
+          title: { color: C.textPrimary, fontWeight: 600 },
+          close: { color: C.textMuted },
+        }}
+      >
+        <Stack gap="md">
+          <TextInput
+            label="Email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.currentTarget.value)}
+            autoFocus
+            styles={{ label: { color: C.textMuted, marginBottom: 6 }, input: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textPrimary, borderRadius: 8 } }}
+          />
+          <PasswordInput
+            label="Password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+            styles={{ label: { color: C.textMuted, marginBottom: 6 }, input: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: C.textPrimary, borderRadius: 8 }, innerInput: { color: C.textPrimary } }}
+          />
+          <Checkbox
+            label="Super administrator"
+            checked={isSuperuser}
+            onChange={(e) => setIsSuperuser(e.currentTarget.checked)}
+            styles={{ label: { color: C.textPrimary }, input: { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.18)" } }}
+          />
+          <Checkbox
+            label="Active"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.currentTarget.checked)}
+            styles={{ label: { color: C.textPrimary }, input: { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.18)" } }}
+          />
+          <Group justify="flex-end" mt="xs">
+            <Button variant="subtle" onClick={closeCreate} disabled={creating} styles={{ root: { color: C.textMuted } }}>Cancel</Button>
+            <Button onClick={handleCreate} loading={creating} disabled={!email.trim() || !password} styles={{ root: { background: "linear-gradient(135deg, #6510F4, #8B5CF6)", borderRadius: 8 } }}>Create user</Button>
+          </Group>
+        </Stack>
+      </Modal>
     </>
   );
 }

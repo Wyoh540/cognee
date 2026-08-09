@@ -2,8 +2,9 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from fastapi_users.exceptions import UserAlreadyExists
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
@@ -11,7 +12,7 @@ from cognee import __version__ as cognee_version
 from cognee.modules.users.models import User
 from cognee.modules.users.models.Tenant import Tenant
 from cognee.modules.users.models.UserTenant import UserTenant
-from cognee.modules.users.methods import get_authenticated_user
+from cognee.modules.users.methods import create_user, get_authenticated_user
 from cognee.infrastructure.databases.relational import get_relational_engine
 from cognee.shared.utils import send_telemetry
 
@@ -19,6 +20,13 @@ from cognee.shared.utils import send_telemetry
 class PatchUserBody(BaseModel):
     is_superuser: Optional[bool] = None
     is_active: Optional[bool] = None
+
+
+class CreateUserBody(BaseModel):
+    email: EmailStr
+    password: str
+    is_superuser: bool = False
+    is_active: bool = True
 
 
 def get_admin_router() -> APIRouter:
@@ -74,9 +82,7 @@ def get_admin_router() -> APIRouter:
             ]
 
     @admin_router.get("/tenants/{tenant_id}")
-    async def get_tenant_detail(
-        tenant_id: UUID, user: User = Depends(get_authenticated_user)
-    ):
+    async def get_tenant_detail(tenant_id: UUID, user: User = Depends(get_authenticated_user)):
         """Get single tenant detail with member list. Superuser only."""
         if not user.is_superuser:
             return JSONResponse(
@@ -91,9 +97,7 @@ def get_admin_router() -> APIRouter:
             tenant_result = await session.execute(tenant_q)
             tenant = tenant_result.scalar_one_or_none()
             if not tenant:
-                return JSONResponse(
-                    status_code=404, content={"detail": "Tenant not found."}
-                )
+                return JSONResponse(status_code=404, content={"detail": "Tenant not found."})
 
             # Get owner email
             owner_q = select(User).where(User.id == tenant.owner_id)
@@ -113,18 +117,12 @@ def get_admin_router() -> APIRouter:
                 "id": str(tenant.id),
                 "name": tenant.name,
                 "owner_email": owner.email if owner else "unknown",
-                "created_at": tenant.created_at.isoformat()
-                if tenant.created_at
-                else None,
-                "members": [
-                    {"id": str(m.id), "email": m.email} for m in members
-                ],
+                "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
+                "members": [{"id": str(m.id), "email": m.email} for m in members],
             }
 
     @admin_router.delete("/tenants/{tenant_id}")
-    async def delete_tenant(
-        tenant_id: UUID, user: User = Depends(get_authenticated_user)
-    ):
+    async def delete_tenant(tenant_id: UUID, user: User = Depends(get_authenticated_user)):
         """Delete a tenant. Superuser only."""
         if not user.is_superuser:
             return JSONResponse(
@@ -139,7 +137,8 @@ def get_admin_router() -> APIRouter:
             tenant = tenant_result.scalar_one_or_none()
             if not tenant:
                 return JSONResponse(
-                    status_code=404, content={"detail": "Tenant not found."},
+                    status_code=404,
+                    content={"detail": "Tenant not found."},
                 )
 
             await session.delete(tenant)
@@ -155,9 +154,7 @@ def get_admin_router() -> APIRouter:
             },
         )
 
-        return JSONResponse(
-            status_code=200, content={"message": "Tenant deleted."}
-        )
+        return JSONResponse(status_code=200, content={"message": "Tenant deleted."})
 
     @admin_router.get("/users")
     async def list_all_users(user: User = Depends(get_authenticated_user)):
@@ -182,12 +179,56 @@ def get_admin_router() -> APIRouter:
                     "is_active": u.is_active,
                     "is_verified": u.is_verified,
                     "tenant_ids": [str(t.id) for t in u.tenants],
-                    "created_at": u.created_at.isoformat()
-                    if u.created_at
-                    else None,
+                    "created_at": u.created_at.isoformat() if u.created_at else None,
                 }
                 for u in users
             ]
+
+    @admin_router.post("/users", status_code=201)
+    async def create_admin_user(
+        body: CreateUserBody,
+        user: User = Depends(get_authenticated_user),
+    ):
+        """Create a user account. Superuser only."""
+        if not user.is_superuser:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Superuser privileges required."},
+            )
+
+        try:
+            created_user = await create_user(
+                email=body.email,
+                password=body.password,
+                is_superuser=body.is_superuser,
+                is_active=body.is_active,
+                is_verified=True,
+            )
+        except UserAlreadyExists:
+            return JSONResponse(
+                status_code=409,
+                content={"detail": "A user with this email already exists."},
+            )
+
+        send_telemetry(
+            "Admin API: User Created",
+            user.id,
+            additional_properties={
+                "target_user_id": str(created_user.id),
+                "is_superuser": created_user.is_superuser,
+                "cognee_version": cognee_version,
+            },
+        )
+
+        return {
+            "id": str(created_user.id),
+            "email": created_user.email,
+            "is_superuser": created_user.is_superuser,
+            "is_active": created_user.is_active,
+            "is_verified": created_user.is_verified,
+            "tenant_ids": [],
+            "created_at": created_user.created_at.isoformat() if created_user.created_at else None,
+        }
 
     @admin_router.patch("/users/{user_id}")
     async def patch_user(
@@ -215,7 +256,8 @@ def get_admin_router() -> APIRouter:
             target = user_result.scalar_one_or_none()
             if not target:
                 return JSONResponse(
-                    status_code=404, content={"detail": "User not found."},
+                    status_code=404,
+                    content={"detail": "User not found."},
                 )
 
             if body.is_superuser is not None:
@@ -235,8 +277,6 @@ def get_admin_router() -> APIRouter:
             },
         )
 
-        return JSONResponse(
-            status_code=200, content={"message": "User updated."}
-        )
+        return JSONResponse(status_code=200, content={"message": "User updated."})
 
     return admin_router

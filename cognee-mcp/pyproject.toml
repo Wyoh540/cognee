@@ -12,6 +12,10 @@ dependencies = [
     "mcp>=1.12.0,<2.0.0",
     "uv>=0.6.3,<1.0.0",
     "httpx>=0.27.0,<1.0.0",
+    # Keep these explicit so uv can route the transitive document-processing
+    # dependencies to the CPU-only index on Linux.
+    "torch ; sys_platform == 'linux'",
+    "torchvision ; sys_platform == 'linux'",
 ]
 
 authors = [
@@ -66,6 +70,18 @@ constraint-dependencies = [
 
 # Note: exclude newer packages that are less than 2 days old
 exclude-newer = "2 days"
+
+# PyPI's Linux PyTorch wheels pull in the complete CUDA runtime even though the
+# MCP server performs document processing on CPU. Use the official CPU wheel on
+# Linux to avoid several gigabytes of unused NVIDIA and Triton dependencies.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu", marker = "sys_platform == 'linux'" }
+torchvision = { index = "pytorch-cpu", marker = "sys_platform == 'linux'" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [project.scripts]
 cognee = "src:main"

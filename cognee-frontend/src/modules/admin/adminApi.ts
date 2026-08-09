@@ -30,6 +30,13 @@ export interface PatchUserBody {
   is_active?: boolean;
 }
 
+export interface CreateUserBody {
+  email: string;
+  password: string;
+  is_superuser: boolean;
+  is_active: boolean;
+}
+
 export async function getAllTenants(): Promise<AdminTenant[]> {
   const res = await localFetch("/v1/admin/tenants");
   if (!res.ok) {
@@ -65,6 +72,19 @@ export async function getAllUsers(): Promise<AdminUser[]> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || `Failed to list users (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function createUser(body: CreateUserBody): Promise<AdminUser> {
+  const res = await localFetch("/v1/admin/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.detail || `Failed to create user (${res.status})`);
   }
   return res.json();
 }
