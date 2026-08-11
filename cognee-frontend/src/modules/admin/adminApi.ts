@@ -1,4 +1,5 @@
 import localFetch from "@/modules/instances/localFetch";
+import type { DatasetDatabaseConfig, DatasetDatabaseConfigUpdate } from "@/modules/datasets/datasetDatabaseConfig";
 
 // Admin API: all endpoints require superuser (backend enforced).
 // Uses localFetch which hits the local backend directly (not workspace pod).
@@ -13,6 +14,7 @@ export interface AdminTenant {
 
 export interface AdminTenantDetail extends AdminTenant {
   members: { id: string; email: string }[];
+  datasets: { id: string; name: string; database_config: DatasetDatabaseConfig | null }[];
 }
 
 export interface AdminUser {
@@ -28,6 +30,23 @@ export interface AdminUser {
 export interface PatchUserBody {
   is_superuser?: boolean;
   is_active?: boolean;
+}
+
+export async function updateTenantDatasetDatabaseConfig(
+  tenantId: string,
+  datasetId: string,
+  body: DatasetDatabaseConfigUpdate,
+): Promise<DatasetDatabaseConfig> {
+  const res = await localFetch(`/v1/admin/tenants/${tenantId}/datasets/${datasetId}/database-config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.detail || `Failed to update database settings (${res.status})`);
+  }
+  return res.json();
 }
 
 export interface CreateUserBody {

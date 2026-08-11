@@ -24,8 +24,6 @@ import { inferSchema, generateCustomPrompt } from "@/modules/llm/managementLlmAp
 import { listOntologies, uploadOntology, deleteOntology, type OntologyMeta } from "@/modules/ontologies/ontologyApi";
 import ShareDatasetModal from "@/ui/elements/ShareDatasetModal";
 import { v4 as uuid } from "uuid";
-import DatasetDatabaseSettings from "./DatasetDatabaseSettings";
-import { useCurrentUser } from "@/modules/users/useCurrentUser";
 import PreviewFileButton from "@/ui/elements/PreviewFileButton";
 
 interface FileEntry {
@@ -144,7 +142,6 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
   const router = useRouter();
   const { cogniInstance, isInitializing } = useCogniInstance();
   const { datasets: contextDatasets } = useFilter();
-  const { data: currentUser } = useCurrentUser();
   const [datasetName, setDatasetName] = useState<string>(datasetId);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -723,7 +720,6 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
 
   const currentDataset = contextDatasets.find((d) => d.id === datasetId);
   const permissions = currentDataset?.permissions ?? [];
-  const isDatasetOwner = Boolean(currentUser && currentDataset?.ownerId === currentUser.id);
 
   return (
     <div
@@ -817,10 +813,6 @@ export default function DatasetDetailPage({ datasetId }: { datasetId: string }) 
           )}
         </div>
       </div>
-
-      {cogniInstance && isDatasetOwner && (
-        <DatasetDatabaseSettings datasetId={datasetId} instance={cogniInstance} />
-      )}
 
       {/* Share modal */}
       {showShareModal && (

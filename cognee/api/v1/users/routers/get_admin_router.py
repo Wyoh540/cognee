@@ -10,6 +10,12 @@ from sqlalchemy.orm import selectinload
 
 from cognee import __version__ as cognee_version
 from cognee.modules.users.models import User
+from cognee.modules.users.models import DatasetDatabase
+from cognee.modules.data.models import Dataset
+from cognee.api.v1.datasets.routers.get_datasets_router import (
+    DatasetDatabaseConfigUpdateDTO,
+    _dataset_database_config_response,
+)
 from cognee.modules.users.models.Tenant import Tenant
 from cognee.modules.users.models.UserTenant import UserTenant
 from cognee.modules.users.methods import create_user, get_authenticated_user
@@ -113,13 +119,85 @@ def get_admin_router() -> APIRouter:
             members_result = await session.execute(members_q)
             members = members_result.scalars().all()
 
+            datasets_result = await session.execute(
+                select(Dataset, DatasetDatabase)
+                .outerjoin(DatasetDatabase, DatasetDatabase.dataset_id == Dataset.id)
+                .where(Dataset.tenant_id == tenant_id)
+                .order_by(Dataset.created_at.desc())
+            )
+            tenant_datasets = [
+                {
+                    "id": str(dataset.id),
+                    "name": dataset.name,
+                    "database_config": (
+                        _dataset_database_config_response(database) if database else None
+                    ),
+                }
+                for dataset, database in datasets_result.all()
+            ]
+
             return {
                 "id": str(tenant.id),
                 "name": tenant.name,
                 "owner_email": owner.email if owner else "unknown",
                 "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
                 "members": [{"id": str(m.id), "email": m.email} for m in members],
+                "member_count": len(members),
+                "datasets": tenant_datasets,
             }
+
+    @admin_router.put("/tenants/{tenant_id}/datasets/{dataset_id}/database-config")
+    async def update_tenant_dataset_database_config(
+        tenant_id: UUID,
+        dataset_id: UUID,
+        body: DatasetDatabaseConfigUpdateDTO,
+        user: User = Depends(get_authenticated_user),
+    ):
+        """Update a workspace dataset's database settings. Superuser only."""
+        if not user.is_superuser:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Superuser privileges required."},
+            )
+
+        db_engine = get_relational_engine()
+        async with db_engine.get_async_session() as session:
+            dataset = await session.scalar(
+                select(Dataset).where(Dataset.id == dataset_id, Dataset.tenant_id == tenant_id)
+            )
+            if not dataset:
+                return JSONResponse(status_code=404, content={"detail": "Dataset not found."})
+
+            record = await session.scalar(
+                select(DatasetDatabase).where(DatasetDatabase.dataset_id == dataset_id)
+            )
+            if not record:
+                return JSONResponse(
+                    status_code=404,
+                    content={"detail": "Dataset database config not found."},
+                )
+
+            updates = body.model_dump(exclude_unset=True)
+            if "graph_database_name" in updates:
+                record.graph_database_name = updates.pop("graph_database_name")
+            if "vector_database_name" in updates:
+                record.vector_database_name = updates.pop("vector_database_name")
+
+            graph_info = dict(record.graph_database_connection_info or {})
+            vector_info = dict(record.vector_database_connection_info or {})
+            for key, value in updates.items():
+                if value is None or (key.endswith("_password") and value == ""):
+                    continue
+                if key.startswith("graph_"):
+                    graph_info[key] = value
+                elif key.startswith("vector_"):
+                    vector_info[key] = value
+            record.graph_database_connection_info = graph_info
+            record.vector_database_connection_info = vector_info
+            await session.commit()
+            await session.refresh(record)
+
+        return _dataset_database_config_response(record)
 
     @admin_router.delete("/tenants/{tenant_id}")
     async def delete_tenant(tenant_id: UUID, user: User = Depends(get_authenticated_user)):

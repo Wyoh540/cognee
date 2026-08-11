@@ -821,10 +821,9 @@ def get_datasets_router() -> APIRouter:
     async def get_dataset_database_config(
         dataset_id: UUID, user: User = Depends(get_authenticated_user)
     ):
-        """Return persisted per-dataset database settings to the dataset owner."""
-        datasets = await get_authorized_existing_datasets([dataset_id], "read", user)
-        if not datasets or datasets[0].owner_id != user.id:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+        """Return persisted per-dataset database settings to a superuser."""
+        if not user.is_superuser:
+            raise HTTPException(status_code=403, detail="Superuser privileges required")
 
         db_engine = get_relational_engine()
         async with db_engine.get_async_session() as session:
@@ -841,10 +840,9 @@ def get_datasets_router() -> APIRouter:
         payload: DatasetDatabaseConfigUpdateDTO,
         user: User = Depends(get_authenticated_user),
     ):
-        """Update persisted per-dataset database settings as the dataset owner."""
-        datasets = await get_authorized_existing_datasets([dataset_id], "write", user)
-        if not datasets or datasets[0].owner_id != user.id:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+        """Update persisted per-dataset database settings as a superuser."""
+        if not user.is_superuser:
+            raise HTTPException(status_code=403, detail="Superuser privileges required")
 
         updates = payload.model_dump(exclude_unset=True)
         db_engine = get_relational_engine()

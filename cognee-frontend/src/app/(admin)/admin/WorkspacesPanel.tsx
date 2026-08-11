@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Text, TextInput, Button } from "@mantine/core";
+import { Fragment, useState, useEffect, useCallback } from "react";
+import { Alert, Button, Center, Group, Paper, ScrollArea, Skeleton, Stack, Table, Text, TextInput, ThemeIcon } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { getAllTenants, deleteTenant, getTenantDetail, createWorkspaceByName, type AdminTenant, type AdminTenantDetail } from "@/modules/admin/adminApi";
-import SkeletonBar from "@/ui/elements/SkeletonBar";
 import { PlusIcon, DeleteIcon } from "@/ui/icons";
-import { AdminCard as Card, ADMIN_COLORS as C, adminPrimaryButtonStyles, notifyAdminError as notifyErr, notifyAdminSuccess as notifyOk } from "./AdminUI";
+import { notifyAdminError as notifyErr, notifyAdminSuccess as notifyOk } from "./AdminUI";
+import WorkspaceDatabaseSettings from "./WorkspaceDatabaseSettings";
 
 function BuildingIcon() {
-  return (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="4" y="2" width="16" height="20" rx="2" /><line x1="9" y1="6" x2="9" y2="6.01" /><line x1="15" y1="6" x2="15" y2="6.01" /></svg>);
+  return (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" /><line x1="9" y1="6" x2="9" y2="6.01" /><line x1="15" y1="6" x2="15" y2="6.01" /></svg>);
 }
 
 export default function WorkspacesPanel() {
@@ -35,7 +35,7 @@ export default function WorkspacesPanel() {
     finally { setCreating(false); }
   };
   const handleDelete = (id: string, name: string) => { modals.openConfirmModal({
-    title: "Delete workspace?", children: <Text size="sm" style={{ color: C.textMuted }}>Delete <strong>{name}</strong>? This cannot be undone.</Text>,
+    title: "Delete workspace?", children: <Text size="sm" c="dimmed">Delete <strong>{name}</strong>? This cannot be undone.</Text>,
     labels: { confirm: "Delete", cancel: "Cancel" }, confirmProps: { color: "red" },
     onConfirm: async () => { setDeletingId(id);
       try { await deleteTenant(id); notifyOk("Workspace deleted."); await loadTenants(); }
@@ -48,54 +48,48 @@ export default function WorkspacesPanel() {
     finally { setDetailLoading(false); }
   };
 
-  const COLUMNS = "1fr auto auto auto";
   return (<>
-    <Card><div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+    <Paper p="lg" withBorder><Group align="flex-end" wrap="wrap">
       <div style={{ flex: 1, minWidth: 240 }}>
         <TextInput placeholder="Workspace name" value={createName} onChange={(e) => setCreateName(e.currentTarget.value)}
           onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }} disabled={creating} aria-label="New workspace name"
-          styles={{ input: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: C.textPrimary, fontSize: 14, height: 40 } }} />
+          />
       </div>
-      <Button onClick={handleCreate} loading={creating} disabled={!createName.trim() || creating} leftSection={<PlusIcon width={12} height={12} color="#fff" />}
-        styles={adminPrimaryButtonStyles}>
-        Create Workspace</Button></div></Card>
-    <Card style={{ flex: 1, overflow: "auto" }}>
-    {loading ? (<div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "0.5rem 0" }}>
+      <Button variant="gradient" onClick={handleCreate} loading={creating} disabled={!createName.trim() || creating} leftSection={<PlusIcon width={12} height={12} color="var(--mantine-color-white)" />}>
+        Create workspace</Button></Group></Paper>
+    <Paper p="lg" withBorder style={{ flex: 1, overflow: "hidden" }}>
+    {loading ? (<Stack gap="md" py="xs">
       {[1, 2, 3].map((i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
-        <SkeletonBar width={180} height={14} /><div style={{ flex: 1 }} /><SkeletonBar width={80} height={14} /><SkeletonBar width={20} height={20} /></div>))}</div>)
-    : error ? (<div style={{ textAlign: "center", padding: "2rem 0" }}>
-      <Text size="sm" style={{ color: C.danger, marginBottom: 12 }}>{error}</Text>
-      <Button onClick={loadTenants} variant="subtle" size="xs" styles={{ root: { color: C.accent } }}>Retry</Button></div>)
-    : tenants.length === 0 ? (<div style={{ textAlign: "center", padding: "3rem 0" }}>
-      <div style={{ marginBottom: 12 }}><BuildingIcon /></div>
-      <Text size="xs" style={{ color: C.textExtraDim }}>Create a workspace above to get started.</Text></div>)
-    : (<div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-      <div style={{ display: "grid", gridTemplateColumns: COLUMNS, gap: 16, alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 2 }}>
-        <Text size="xs" style={{ color: C.textExtraDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Name</Text>
-        <Text size="xs" style={{ color: C.textExtraDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Owner</Text>
-        <Text size="xs" style={{ color: C.textExtraDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Members</Text>
-        <div style={{ width: 80 }} /></div>
+        <Skeleton circle width={32} height={32} />
+        <Skeleton width={180} height={14} /><div style={{ flex: 1 }} /><Skeleton width={80} height={14} /><Skeleton width={20} height={20} /></div>))}</Stack>)
+    : error ? <Alert color="red" title="Unable to load workspaces">{error}<Button onClick={loadTenants} variant="subtle" size="xs" mt="sm">Retry</Button></Alert>
+    : tenants.length === 0 ? <Center py={48}><Stack align="center" gap="xs"><ThemeIcon variant="light" size="xl"><BuildingIcon /></ThemeIcon><Text size="sm">No workspaces found.</Text><Text size="xs" c="dimmed">Create a workspace above to get started.</Text></Stack></Center>
+    : <ScrollArea h="100%"><Table striped highlightOnHover verticalSpacing="sm" horizontalSpacing="md" miw={760}>
+      <Table.Thead><Table.Tr><Table.Th>Name</Table.Th><Table.Th>Owner</Table.Th><Table.Th>Members</Table.Th><Table.Th ta="right">Actions</Table.Th></Table.Tr></Table.Thead>
+      <Table.Tbody>
       {tenants.map((t) => {
         const isExp = expandedId === t.id;
         const isDel = deletingId === t.id;
-        return (<div key={t.id}>
-          <div style={{ display: "grid", gridTemplateColumns: COLUMNS, gap: 16, alignItems: "center", padding: "10px 0", borderRadius: 8, transition: "background 120ms ease" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-            <Text size="sm" style={{ color: C.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.name}>{t.name}</Text>
-            <Text size="sm" style={{ color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner_email}</Text>
-            <Text size="sm" style={{ color: C.textMuted }}>{t.member_count}</Text>
-            <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", width: 80 }}>
-              <Button onClick={() => handleToggleDetail(t.id)} size="compact-xs" variant="light"
-                styles={{ root: { color: isExp ? C.accent : "rgba(237,236,234,0.5)", background: isExp ? C.accentBg : "transparent", border: "none", fontSize: 11, height: 24 } }}>
+        return (<Fragment key={t.id}>
+          <Table.Tr>
+            <Table.Td><Text size="sm" fw={500} truncate title={t.name}>{t.name}</Text></Table.Td>
+            <Table.Td><Text size="sm" c="dimmed" truncate>{t.owner_email}</Text></Table.Td>
+            <Table.Td><Text size="sm" c="dimmed">{t.member_count}</Text></Table.Td>
+            <Table.Td><Group gap="xs" justify="flex-end" wrap="nowrap">
+              <Button onClick={() => handleToggleDetail(t.id)} size="compact-xs" variant={isExp ? "light" : "subtle"}>
                 {isExp ? "Hide" : "View"}</Button>
-              <Button onClick={() => handleDelete(t.id, t.name)} size="compact-xs" variant="light" disabled={isDel}
-                styles={{ root: { color: "rgba(237,236,234,0.3)", border: "none", fontSize: 11, height: 24 } }}>
-                {isDel ? "..." : <DeleteIcon width={11} height={12} color="currentColor" />}</Button></div></div>
-          {isExp && (detailLoading ? <div style={{ padding: "0.75rem 0" }}><SkeletonBar width={200} height={14} /></div>
-            : detail ? (<div style={{ padding: "0.75rem 0 0.5rem 0", borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 4 }}>
-              <Text size="xs" style={{ color: C.textMuted, marginBottom: 6 }}>
-                Members: {detail.members.map((m) => m.email).join(", ")}</Text></div>) : null)}
-        </div>);})}
-    </div>)}</Card></>);}
+              <Button aria-label={`Delete ${t.name}`} onClick={() => handleDelete(t.id, t.name)} size="compact-xs" variant="subtle" color="red" loading={isDel}>
+                <DeleteIcon width={11} height={12} color="currentColor" /></Button></Group></Table.Td></Table.Tr>
+          {isExp && <Table.Tr><Table.Td colSpan={4} bg="var(--mantine-color-dark-8)">{detailLoading ? <Skeleton width={200} height={14} my="sm" />
+            : detail ? (<Stack gap="sm" py="xs">
+              <Text size="xs" c="dimmed">
+                Members: {detail.members.map((m) => m.email).join(", ")}</Text>
+              {detail.datasets.length === 0 ? <Text size="xs" c="dimmed">No datasets in this workspace.</Text> : detail.datasets.map((dataset) => dataset.database_config ? (
+                <WorkspaceDatabaseSettings key={dataset.id} tenantId={t.id} datasetName={dataset.name} initialConfig={dataset.database_config}
+                  onSaved={(database_config) => setDetail({ ...detail, datasets: detail.datasets.map((item) => item.id === dataset.id ? { ...item, database_config } : item) })} />
+              ) : <Text key={dataset.id} size="xs" c="dimmed">{dataset.name}: no database connection configured.</Text>)}
+            </Stack>) : null}</Table.Td></Table.Tr>}
+        </Fragment>);})}
+      </Table.Tbody>
+    </Table></ScrollArea>}
+    </Paper></>);}

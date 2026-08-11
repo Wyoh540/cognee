@@ -36,9 +36,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}
       >
         <QueryProvider>
-          <MantineProvider theme={theme}>
+          <MantineProvider theme={theme} forceColorScheme="dark">
             <Notifications position="top-right" zIndex={10001} />
-            <ModalsProvider>{children}</ModalsProvider>
+            <ModalsProvider modalProps={{ zIndex: 1000 }}>{children}</ModalsProvider>
           </MantineProvider>
         </QueryProvider>
       </body>

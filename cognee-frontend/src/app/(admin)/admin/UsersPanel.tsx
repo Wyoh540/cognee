@@ -1,18 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Text, Button, Modal, TextInput, PasswordInput, Checkbox, Stack, Group } from "@mantine/core";
+import { Alert, Badge, Button, Center, Checkbox, Group, Modal, Paper, PasswordInput, ScrollArea, Skeleton, Stack, Table, Text, TextInput, ThemeIcon } from "@mantine/core";
 import { createUser, getAllUsers, patchUser, type AdminUser } from "@/modules/admin/adminApi";
-import SkeletonBar from "@/ui/elements/SkeletonBar";
 import { PlusIcon } from "@/ui/icons";
-import { AdminCard as Card, ADMIN_COLORS as C, adminCheckboxStyles, adminInputStyles, adminModalStyles, adminPasswordInputStyles, adminPrimaryButtonStyles, notifyAdminError as notifyErr, notifyAdminSuccess as notifyOk } from "./AdminUI";
+import { AdminPage, AdminPageHeader, notifyAdminError as notifyErr, notifyAdminSuccess as notifyOk } from "./AdminUI";
 
 function PersonIcon({ size = 20 }: { size?: number }) {
-  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="rgba(237,236,234,0.4)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="8" r="4" /><path d="M5.5 21a6.5 6.5 0 0113 0" /></svg>);
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--mantine-color-dimmed)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="8" r="4" /><path d="M5.5 21a6.5 6.5 0 0113 0" /></svg>);
 }
 
 function UsersIcon() {
-  return (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>);
+  return (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>);
 }
 
 export default function UsersPanel() {
@@ -76,77 +75,58 @@ export default function UsersPanel() {
     }
   };
 
-  const COLUMNS = "1fr auto auto auto";
   return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, marginBottom: 24 }}>
-        <div>
-          <h1 className="m-0 text-xl font-medium text-[#EDECEA]">Users</h1>
-          <Text size="sm" style={{ color: C.textMuted, marginTop: 4 }}>
-            Manage platform access and super administrator permissions.
-          </Text>
-        </div>
-        <Button
+    <AdminPage>
+      <AdminPageHeader
+        title="Users"
+        description="Manage platform access and super administrator permissions."
+        action={<Button variant="gradient"
           onClick={() => setCreateOpen(true)}
-          leftSection={<PlusIcon width={12} height={12} color="#fff" />}
-          styles={adminPrimaryButtonStyles}
+          leftSection={<PlusIcon width={12} height={12} color="var(--mantine-color-white)" />}
         >
           New user
-        </Button>
-      </div>
-      <Card style={{ flex: 1, overflow: "auto" }}>
-        {loading ? (<div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "0.5rem 0" }}>
+        </Button>}
+      />
+      <Paper p="lg" withBorder style={{ flex: 1, overflow: "hidden" }}>
+        {loading ? (<Stack gap="md" py="xs">
           {[1, 2, 3].map((i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
-            <SkeletonBar width={180} height={14} /><div style={{ flex: 1 }} />
-            <SkeletonBar width={60} height={20} /><SkeletonBar width={60} height={20} /></div>))}
-        </div>)
-        : error ? (<div style={{ textAlign: "center", padding: "2rem 0" }}>
-          <Text size="sm" style={{ color: C.danger, marginBottom: 12 }}>{error}</Text>
-          <Button onClick={loadUsers} variant="subtle" size="xs" styles={{ root: { color: C.accent } }}>Retry</Button>
-        </div>)
-        : users.length === 0 ? (<div style={{ textAlign: "center", padding: "3rem 0" }}>
-          <div style={{ marginBottom: 12 }}><UsersIcon /></div>
-          <Text size="sm" style={{ color: C.textDim, marginBottom: 4 }}>No users found.</Text>
-          <Text size="xs" style={{ color: C.textExtraDim }}>Users will appear here when they sign up.</Text>
-        </div>)
-        : (<div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <div style={{ display: "grid", gridTemplateColumns: COLUMNS, gap: 16, alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 2 }}>
-            <Text size="xs" style={{ color: C.textExtraDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>User</Text>
-            <Text size="xs" style={{ color: C.textExtraDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Superuser</Text>
-            <Text size="xs" style={{ color: C.textExtraDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</Text>
-            <div style={{ width: 160 }} />
-          </div>
+            <Skeleton circle width={32} height={32} />
+            <Skeleton width={180} height={14} /><div style={{ flex: 1 }} />
+            <Skeleton width={60} height={20} /><Skeleton width={60} height={20} /></div>))}
+        </Stack>)
+        : error ? <Alert color="red" title="Unable to load users">{error}<Button onClick={loadUsers} variant="subtle" size="xs" mt="sm">Retry</Button></Alert>
+        : users.length === 0 ? <Center py={48}><Stack align="center" gap="xs"><ThemeIcon variant="light" size="xl"><UsersIcon /></ThemeIcon><Text size="sm">No users found.</Text><Text size="xs" c="dimmed">Users will appear here when they sign up.</Text></Stack></Center>
+        : <ScrollArea h="100%">
+          <Table striped highlightOnHover verticalSpacing="sm" horizontalSpacing="md" miw={760}>
+            <Table.Thead><Table.Tr><Table.Th>User</Table.Th><Table.Th>Superuser</Table.Th><Table.Th>Status</Table.Th><Table.Th ta="right">Actions</Table.Th></Table.Tr></Table.Thead>
+            <Table.Tbody>
           {users.map((u) => {
             const kS = u.id + "/is_superuser";
             const kA = u.id + "/is_active";
             return (
-              <div key={u.id} style={{ display: "grid", gridTemplateColumns: COLUMNS, gap: 16, alignItems: "center", padding: "10px 0", borderRadius: 8, transition: "background 120ms ease" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+              <Table.Tr key={u.id}>
+                <Table.Td><Group gap="sm" wrap="nowrap">
                   <PersonIcon size={20} />
-                  <Text size="sm" style={{ color: C.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={u.email}>{u.email}</Text>
-                </div>
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  {u.is_superuser ? <span style={{ background: C.accentBg, color: C.accent, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>Admin</span> : <span style={{ background: "rgba(255,255,255,0.08)", color: C.textMuted, padding: "2px 8px", borderRadius: 4, fontSize: 11 }}>-</span>}</div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: u.is_active ? C.green : C.danger }} />
-                  <Text size="xs" style={{ color: u.is_active ? C.green : C.danger }}>{u.is_active ? "Active" : "Inactive"}</Text></div>
-                <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                  <Button onClick={() => handleToggle(u.id, "is_superuser", u.is_superuser)} size="compact-xs" variant="light" disabled={!!toggling[kS]} styles={{ root: { fontSize: 11, height: 24 } }}>{!!toggling[kS] ? "..." : u.is_superuser ? "Revoke Admin" : "Make Admin"}</Button>
-                  <Button onClick={() => handleToggle(u.id, "is_active", u.is_active)} size="compact-xs" variant="light" disabled={!!toggling[kA]} styles={{ root: { fontSize: 11, height: 24 } }}>{!!toggling[kA] ? "..." : u.is_active ? "Deactivate" : "Activate"}</Button>
-                </div>
-              </div>);
+                  <Text size="sm" truncate title={u.email}>{u.email}</Text>
+                </Group></Table.Td>
+                <Table.Td><Badge size="xs" variant={u.is_superuser ? "light" : "default"}>{u.is_superuser ? "Admin" : "—"}</Badge></Table.Td>
+                <Table.Td><Badge size="xs" variant="dot" color={u.is_active ? "green" : "red"}>{u.is_active ? "Active" : "Inactive"}</Badge></Table.Td>
+                <Table.Td><Group gap="xs" justify="flex-end" wrap="nowrap">
+                  <Button onClick={() => handleToggle(u.id, "is_superuser", u.is_superuser)} size="compact-xs" variant="light" loading={!!toggling[kS]}>{u.is_superuser ? "Revoke admin" : "Make admin"}</Button>
+                  <Button onClick={() => handleToggle(u.id, "is_active", u.is_active)} size="compact-xs" variant="subtle" color={u.is_active ? "red" : "primary2"} loading={!!toggling[kA]}>{u.is_active ? "Deactivate" : "Activate"}</Button>
+                </Group></Table.Td>
+              </Table.Tr>);
           })}
-        </div>)}
-      </Card>
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>}
+      </Paper>
       <Modal
         opened={createOpen}
         onClose={closeCreate}
         title="Create user"
         centered
-        styles={adminModalStyles}
+        zIndex={1000}
       >
         <Stack gap="md">
           <TextInput
@@ -156,33 +136,29 @@ export default function UsersPanel() {
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
             autoFocus
-            styles={adminInputStyles}
           />
           <PasswordInput
             label="Password"
             required
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
-            styles={adminPasswordInputStyles}
           />
           <Checkbox
             label="Super administrator"
             checked={isSuperuser}
             onChange={(e) => setIsSuperuser(e.currentTarget.checked)}
-            styles={adminCheckboxStyles}
           />
           <Checkbox
             label="Active"
             checked={isActive}
             onChange={(e) => setIsActive(e.currentTarget.checked)}
-            styles={adminCheckboxStyles}
           />
           <Group justify="flex-end" mt="xs">
-            <Button variant="subtle" onClick={closeCreate} disabled={creating} styles={{ root: { color: C.textMuted } }}>Cancel</Button>
-            <Button onClick={handleCreate} loading={creating} disabled={!email.trim() || !password} styles={adminPrimaryButtonStyles}>Create user</Button>
+            <Button variant="subtle" onClick={closeCreate} disabled={creating}>Cancel</Button>
+            <Button variant="gradient" onClick={handleCreate} loading={creating} disabled={!email.trim() || !password}>Create user</Button>
           </Group>
         </Stack>
       </Modal>
-    </>
+    </AdminPage>
   );
 }
