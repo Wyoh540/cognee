@@ -93,6 +93,17 @@ function KeyIcon({ active }: { active: boolean }) {
   );
 }
 
+function MembersIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={active ? "#BC9BFF" : "rgba(255,255,255,0.5)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
 // -- Navigation data --
 
 // Routes that require the tenant pod — dimmed/locked while it provisions.
@@ -139,6 +150,12 @@ const BASE_NAV_SECTIONS: NavSection[] = [
     items: [
       { text: "Integrations", link: "/integrations", icon: IntegrationsIcon },
       { text: "API Keys", link: "/api-keys", icon: KeyIcon },
+    ],
+  },
+  {
+    label: "WORKSPACE",
+    items: [
+      { text: "Members", link: "/members", icon: MembersIcon },
     ],
   },
 ];
