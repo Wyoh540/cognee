@@ -4,6 +4,15 @@
  * environment variables set in step 1.
  */
 
+const TEAM_MODE_GUIDANCE = `## Team workspace
+
+You are operating as an agent member of the current Cognee team workspace. The API key identifies you and the workspace; never ask for or use another teammate's key.
+- Memory is shared through datasets, not through one global private memory. Only read or write datasets that this identity can access.
+- List the accessible datasets before the first memory operation. Reuse the user's requested dataset when it is accessible; otherwise ask which accessible dataset to use instead of silently creating one or falling back to another.
+- Treat recalled team knowledge as workspace-confidential. Use it only for the current task, do not reveal unrelated entries, and do not copy it to another dataset unless the user explicitly asks.
+- Writes to a shared dataset become team knowledge. Store durable, useful facts with enough source/context for teammates to understand them; do not store secrets, credentials, transient chatter, or unverified assumptions.
+- Keep one session_id per conversation and per acting agent. Do not reuse a teammate's session_id, and do not merge parallel agents' transcripts.`;
+
 export const CLAUDE_PROMPT = `You are connected to Cognee Cloud, a persistent knowledge graph memory system. Use it to store and retrieve knowledge across conversations.
 
 ## First — is memory already automatic here?
@@ -23,6 +32,8 @@ Your Cognee credentials are available as environment variables:
 **If these variables are not set**, ask the user to either:
 1. Open a new terminal and run the export commands from the Cognee Cloud console (Connect to Claude → Step 1), or
 2. Provide the values directly so you can use them inline
+
+${TEAM_MODE_GUIDANCE}
 
 ## Session ID — ALWAYS use one
 
@@ -74,7 +85,7 @@ Headers: X-Api-Key: $COGNEE_API_KEY
 3. Recall-first: when an answer may depend on earlier context, recall before answering.
 4. You do NOT need to store after every turn — the session is captured and converted to long-term memory automatically. Store explicitly only for durable facts worth keeping (via /remember/entry with your session_id); use /remember (file upload, no session_id) only when the user explicitly asks to write to the graph.
 5. Keep memory operations quiet — don't narrate routine recalls or saves.
-6. Use the default_dataset unless the user specifies otherwise`;
+6. In team mode, use the explicitly requested accessible dataset. If none was specified, list accessible datasets and ask rather than assuming default_dataset`;
 
 export const CODEX_PROMPT = `You are connected to Cognee Cloud, a persistent knowledge graph memory system. Use it to store and retrieve knowledge across conversations.
 
@@ -95,6 +106,8 @@ Your Cognee credentials are available as environment variables:
 **If these variables are not set**, ask the user to either:
 1. Open a new terminal and run the export commands from the Cognee Cloud console (Connect to Codex → Step 1), or
 2. Provide the values directly so you can use them inline
+
+${TEAM_MODE_GUIDANCE}
 
 ## Session ID — ALWAYS use one
 
@@ -145,7 +158,7 @@ curl -s "$COGNEE_BASE_URL/api/v1/datasets/?session_id=<session-id>" -H "X-Api-Ke
 3. Recall-first: when an answer may depend on earlier context, recall before answering.
 4. You do NOT need to store after every turn — the session is captured and converted to long-term memory automatically. Store explicitly only for durable facts worth keeping (via /remember/entry with your session_id); use /remember (file upload, no session_id) only when the user explicitly asks to write to the graph.
 5. Keep memory operations quiet — don't narrate routine recalls or saves.
-6. Use the default_dataset unless the user specifies otherwise`;
+6. In team mode, use the explicitly requested accessible dataset. If none was specified, list accessible datasets and ask rather than assuming default_dataset`;
 
 export const OPENCLAW_PROMPT = `You are connected to Cognee Cloud, a persistent knowledge graph memory system. Use it to store and retrieve knowledge across conversations.
 
@@ -166,6 +179,8 @@ Your Cognee credentials are available as environment variables:
 **If these variables are not set**, ask the user to either:
 1. Set them in ~/.openclaw/.env
 2. Provide the values directly so you can use them inline
+
+${TEAM_MODE_GUIDANCE}
 
 ## Session ID — ALWAYS use one
 
@@ -210,7 +225,7 @@ For targeted retrieval, add "search_type" to the recall body — one of: HYBRID_
 2. Verify that $COGNEE_BASE_URL and $COGNEE_API_KEY are available; if not, prompt the user. Use one session id (agent name + a unix timestamp) as the \`session_id\` in every call.
 3. Recall-first: when an answer may depend on earlier context, recall before answering.
 4. You do NOT need to store after every turn — the session is captured and converted to long-term memory automatically. Store explicitly only for durable facts worth keeping (via /remember/entry with session_id); use /remember (file upload, no session_id) only when the user explicitly asks.
-5. Use the default_dataset unless the user specifies otherwise`;
+5. In team mode, use the explicitly requested accessible dataset. If none was specified, list accessible datasets and ask rather than assuming default_dataset`;
 
 export const SKILLS_CONTENT = `# Cognee Cloud Memory Skill
 
@@ -231,6 +246,8 @@ The HTTP API instructions below are the fallback for when you have neither a plu
   - \`COGNEE_API_KEY\` — your API key
 
 **If these variables are not set**, ask the user to run the export commands from the Cognee Cloud console (Connect to Claude Code → Step 1).
+
+${TEAM_MODE_GUIDANCE}
 
 ## ALWAYS ping Cognee Cloud first
 
@@ -256,7 +273,7 @@ When the user shares important information worth preserving:
 curl -X POST $COGNEE_BASE_URL/api/v1/remember/entry \\
   -H "X-Api-Key: $COGNEE_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"entry": {"type": "qa", "question": "<topic or user question>", "answer": "<the knowledge to store>"}, "dataset_name": "default_dataset", "session_id": "<session-id>"}'
+  -d '{"entry": {"type": "qa", "question": "<topic or user question>", "answer": "<the knowledge to store>"}, "dataset_name": "<accessible-dataset>", "session_id": "<session-id>"}'
 \`\`\`
 
 ### Store directly in the knowledge graph (ONLY when explicitly asked)
@@ -266,7 +283,7 @@ TMP=$(mktemp) && printf '%s' "<text to store>" > "$TMP"
 curl -X POST $COGNEE_BASE_URL/api/v1/remember \\
   -H "X-Api-Key: $COGNEE_API_KEY" \\
   -F "data=@$TMP;type=text/plain" \\
-  -F "datasetName=default_dataset"
+  -F "datasetName=<accessible-dataset>"
 rm -f "$TMP"
 \`\`\`
 
@@ -294,7 +311,7 @@ curl -s "$COGNEE_BASE_URL/api/v1/datasets/?session_id=<session-id>" -H "X-Api-Ke
 5. Recall-first: when an answer may depend on earlier context, recall before answering
 6. You do NOT need to store after every turn — the session is captured and converted to long-term memory automatically. Store explicitly only for durable facts worth keeping (via /remember/entry with your session_id); use /remember (file upload, no session_id) only when the user explicitly asks to write to the graph
 7. Keep memory operations quiet — don't narrate routine recalls or saves
-8. Use default_dataset unless specified otherwise`;
+8. In team mode, use the explicitly requested accessible dataset. If none was specified, list accessible datasets and ask rather than assuming default_dataset`;
 
 // ── Per-agent skill file contents ─────────────────────────────────────────
 // These are stored statically on the frontend. The install scripts are
@@ -321,6 +338,8 @@ The HTTP API instructions below are the fallback for when you have neither a plu
 
 **If these variables are not set**, ask the user to run the export commands from the Cognee Cloud console (Connect to Codex → Step 1).
 
+${TEAM_MODE_GUIDANCE}
+
 ## Session ID — ALWAYS use one
 
 At the start of the conversation, generate ONE id (a fixed prefix "codex_" plus a unix timestamp, e.g. "codex_1719320000") and reuse it as \`session_id\` in every call. Sessions group your activity in the Cognee Cloud dashboard and are converted into long-term memory. The ONLY exception: when the user explicitly asks you to store something directly in the knowledge graph, call /remember without a session_id.
@@ -334,7 +353,7 @@ When the user shares important information worth preserving:
 curl -X POST $COGNEE_BASE_URL/api/v1/remember/entry \\
   -H "X-Api-Key: $COGNEE_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"entry": {"type": "qa", "question": "<topic or user question>", "answer": "<the knowledge to store>"}, "dataset_name": "default_dataset", "session_id": "<session-id>"}'
+  -d '{"entry": {"type": "qa", "question": "<topic or user question>", "answer": "<the knowledge to store>"}, "dataset_name": "<accessible-dataset>", "session_id": "<session-id>"}'
 \`\`\`
 
 ### Store directly in the knowledge graph (ONLY when explicitly asked)
@@ -344,7 +363,7 @@ TMP=$(mktemp) && printf '%s' "<text to store>" > "$TMP"
 curl -X POST $COGNEE_BASE_URL/api/v1/remember \\
   -H "X-Api-Key: $COGNEE_API_KEY" \\
   -F "data=@$TMP;type=text/plain" \\
-  -F "datasetName=default_dataset"
+  -F "datasetName=<accessible-dataset>"
 rm -f "$TMP"
 \`\`\`
 
@@ -370,7 +389,7 @@ curl -s "$COGNEE_BASE_URL/api/v1/datasets/?session_id=<session-id>" -H "X-Api-Ke
 3. Recall-first: when an answer may depend on earlier context, recall before answering
 4. You do NOT need to store after every turn — the session is captured and converted to long-term memory automatically. Store explicitly only for durable facts worth keeping (via /remember/entry with your session_id); use /remember (file upload, no session_id) only when the user explicitly asks to write to the graph
 5. Keep memory operations quiet — don't narrate routine recalls or saves
-6. Use default_dataset unless specified otherwise`;
+6. In team mode, use the explicitly requested accessible dataset. If none was specified, list accessible datasets and ask rather than assuming default_dataset`;
 
 export const OPENCLAW_SKILLS_CONTENT = `# Cognee Cloud Memory Skill
 
@@ -392,6 +411,8 @@ The HTTP API instructions below are the fallback for when you have neither a plu
 
 **If these variables are not set**, ask the user to run the export commands from the Cognee Cloud console (Connect to OpenClaw → Step 1).
 
+${TEAM_MODE_GUIDANCE}
+
 ## Session ID — ALWAYS use one
 
 At the start of the conversation, generate ONE id (your agent name + a unix timestamp) and reuse it as \`session_id\` in every call. Sessions group your activity in the Cognee Cloud dashboard and are converted into long-term memory. The ONLY exception: when the user explicitly asks you to store something directly in the knowledge graph, call /remember without a session_id.
@@ -405,7 +426,7 @@ When the user shares important information worth preserving:
 curl -X POST $COGNEE_BASE_URL/api/v1/remember/entry \\
   -H "X-Api-Key: $COGNEE_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"entry": {"type": "qa", "question": "<topic or user question>", "answer": "<the knowledge to store>"}, "dataset_name": "default_dataset", "session_id": "<session-id>"}'
+  -d '{"entry": {"type": "qa", "question": "<topic or user question>", "answer": "<the knowledge to store>"}, "dataset_name": "<accessible-dataset>", "session_id": "<session-id>"}'
 \`\`\`
 
 ### Store directly in the knowledge graph (ONLY when explicitly asked)
@@ -415,7 +436,7 @@ TMP=$(mktemp) && printf '%s' "<text to store>" > "$TMP"
 curl -X POST $COGNEE_BASE_URL/api/v1/remember \\
   -H "X-Api-Key: $COGNEE_API_KEY" \\
   -F "data=@$TMP;type=text/plain" \\
-  -F "datasetName=default_dataset"
+  -F "datasetName=<accessible-dataset>"
 rm -f "$TMP"
 \`\`\`
 
@@ -441,7 +462,7 @@ curl -s "$COGNEE_BASE_URL/api/v1/datasets/?session_id=<session-id>" -H "X-Api-Ke
 3. Recall-first: when an answer may depend on earlier context, recall before answering
 4. You do NOT need to store after every turn — the session is captured and converted to long-term memory automatically. Store explicitly only for durable facts worth keeping (via /remember/entry with your session_id); use /remember (file upload, no session_id) only when the user explicitly asks to write to the graph
 5. Keep memory operations quiet — don't narrate routine recalls or saves
-6. Use default_dataset unless specified otherwise`;
+6. In team mode, use the explicitly requested accessible dataset. If none was specified, list accessible datasets and ask rather than assuming default_dataset`;
 
 // Claude Code marketplace plugin commands — run in a terminal.
 // The first registers the Cognee marketplace, the second installs the memory plugin.
@@ -466,7 +487,7 @@ export const CODEX_PLUGIN_INSTALL = "codex plugin add cognee@cognee";
 // prompt must not mention them; it only states WHAT to store, the category,
 // and the dataset.
 export const UPLOAD_MEMORY_PROMPT =
-  "Bring my existing memory into Cognee as permanent long-term memory. Gather what you already know about me and my work — my CLAUDE.md / AGENTS.md, project notes, and durable facts from our past conversations — and store it with the cognee-remember skill in the \"agent_sessions\" dataset: facts about me, my preferences and how I like to work as category \"user\"; project and codebase knowledge as category \"project\". Group related facts into a few substantial remember calls rather than many tiny ones, and give me a short summary of what you stored. The Cognee plugin handles sessions automatically — you don't need a session id or any manual API call.";
+  "Bring my existing memory into Cognee as permanent long-term team memory. First confirm that you can access the \"agent_sessions\" dataset; if you cannot, ask me which accessible team dataset to use. Gather durable, non-sensitive knowledge you already know about me and our work — my CLAUDE.md / AGENTS.md, project notes, and useful facts from our past conversations. Store facts about me, my preferences, and how I like to work as category \"user\"; store project and codebase knowledge as category \"project\". Do not store credentials, private teammate information, transient conversation details, or assumptions. Include enough context for another teammate or agent to understand each memory, group related facts into a few substantial remember calls rather than many tiny ones, and give me a short summary of what you stored. The Cognee plugin handles each agent's session automatically — you don't need a session id or any manual API call.";
 
 // Onboarding Option B: the sample text the user pastes to their agent to store
 // in Cognee, giving them something concrete to recall in the next step.
