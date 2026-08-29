@@ -24,6 +24,4 @@ async def has_tenant_membership(user_id: UUID, tenant_id: UUID):
             )
         )
         if result.scalars().first() is None:
-            raise PermissionDeniedError(
-                message="User is not a member of this tenant"
-            )
+            raise PermissionDeniedError(message="User is not a member of this tenant")

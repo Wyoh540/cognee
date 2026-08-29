@@ -1,14 +1,3 @@
-# Build the MCP App workspace bundle (React/Vite, served inline by the MCP
-# server). Vite writes to ../src/app_bundles/ relative to apps-src, so we
-# mirror the repo layout: /build/cognee-mcp/{apps-src,src}.
-FROM node:22-alpine AS app-bundle
-WORKDIR /build/cognee-mcp/apps-src
-COPY ./cognee-mcp/apps-src/package.json ./cognee-mcp/apps-src/package-lock.json ./
-RUN npm ci
-COPY ./cognee-mcp/apps-src ./
-RUN npm run build
-# Output lands at /build/cognee-mcp/src/app_bundles/visualize-graph.html
-
 # Use a Python image with uv pre-installed
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS uv
 
@@ -44,13 +33,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows layer caching
 COPY ./cognee-mcp /app
-# Drop in the workspace bundle built by the node stage. Order matters: the
-# COPY above brings in `cognee-mcp/src/app_bundles/` (empty in CI/clean clones
-# because the bundle is gitignored, or stale on a developer's machine), and
-# this COPY then *shadows* it with the freshly-built bundle. uv sync below
-# packages this into the wheel installed into the venv; visualize_graph_ui
-# reads the bundle from its own neighbor directory inside site-packages.
-COPY --from=app-bundle /build/cognee-mcp/src/app_bundles /app/src/app_bundles
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
@@ -62,11 +44,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Create the runtime user before copying the application so Docker can assign
-# ownership as part of the COPY layer. A later recursive chown duplicates every
-# file in /app in a new image layer (several gigabytes for the Python venv).
+# Create the non-root user up front so the COPY below can set ownership in a
+# single layer. A separate `chown -R /app` rewrites metadata on every file,
+# which forces overlayfs to copy up the entire ~9GB /app tree into a second
+# layer (the venv effectively stored twice). `COPY --chown` avoids that.
+# ``chown cognee /app`` (the directory inode only): WORKDIR created /app as
+# root, and ``COPY --chown`` sets ownership on the copied content, not the
+# pre-existing target dir — without this the JSON-extension pre-install below
+# cannot create ``$HOME/.lbdb`` and has been silently falling back to its
+# build warning (and the runtime install fails the same way as non-root).
 RUN groupadd --system --gid 1000 cognee \
-    && useradd --system --uid 1000 --gid cognee --no-create-home --shell /usr/sbin/nologin cognee
+    && useradd --system --uid 1000 --gid cognee --no-create-home --shell /usr/sbin/nologin cognee \
+    && mkdir -p /data/uploads /data/system /data/cache /data/logs /data/models/fastembed \
+    && chown -R cognee:cognee /data \
+    && chown cognee:cognee /app
 
 # Copy the virtual environment from the uv stage
 COPY --from=uv /usr/local /usr/local
@@ -84,6 +75,12 @@ ENV PYTHONPATH=/app
 # Give the non-root user a stable, writable HOME so Kuzu/Ladybug caches its
 # downloaded extensions in a consistent location across build and runtime.
 ENV HOME=/app
+# Match the main image's unified persistent volume layout.
+ENV SYSTEM_ROOT_DIRECTORY=/data/system
+ENV DATA_ROOT_DIRECTORY=/data/uploads
+ENV CACHE_ROOT_DIRECTORY=/data/cache
+ENV COGNEE_LOGS_DIR=/data/logs
+ENV FASTEMBED_CACHE_PATH=/data/models/fastembed
 
 # Add labels for API mode usage
 LABEL org.opencontainers.image.description="Cognee MCP Server with API mode support"
@@ -102,3 +99,8 @@ RUN python -c "from cognee_db_workers._kuzu_helpers import install_json_extensio
 # Use the application name from pyproject.toml for normal operation
 # For testing, we'll override this with a direct command
 ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Only the HTTP/SSE transports serve an HTTP server; in the default stdio mode
+# there is nothing to probe, so report healthy without hitting the network.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD [ "${TRANSPORT_MODE:-stdio}" = "stdio" ] || python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"

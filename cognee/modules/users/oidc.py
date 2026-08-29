@@ -60,7 +60,9 @@ async def discovery(issuer: str) -> dict:
 
 def make_pkce() -> tuple[str, str]:
     verifier = secrets.token_urlsafe(64)
-    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    )
     return verifier, challenge
 
 
@@ -71,7 +73,9 @@ def encode_state(payload: dict) -> str:
         "state": secrets.token_urlsafe(24),
         "exp": int(time.time()) + 600,
     }
-    return jwt.encode(payload, os.getenv("FASTAPI_USERS_JWT_SECRET", "super_secret"), algorithm="HS256")
+    return jwt.encode(
+        payload, os.getenv("FASTAPI_USERS_JWT_SECRET", "super_secret"), algorithm="HS256"
+    )
 
 
 def decode_state(token: str) -> dict:
@@ -86,7 +90,9 @@ def decode_state(token: str) -> dict:
         raise HTTPException(400, "Invalid or expired OIDC state.") from exc
 
 
-def authorization_url(document: dict, provider, redirect_uri: str, state: dict, challenge: str) -> str:
+def authorization_url(
+    document: dict, provider, redirect_uri: str, state: dict, challenge: str
+) -> str:
     params = {
         "response_type": "code",
         "client_id": provider.client_id,
@@ -97,10 +103,12 @@ def authorization_url(document: dict, provider, redirect_uri: str, state: dict, 
         "code_challenge": challenge,
         "code_challenge_method": "S256",
     }
-    return f'{document["authorization_endpoint"]}?{urlencode(params)}'
+    return f"{document['authorization_endpoint']}?{urlencode(params)}"
 
 
-async def exchange_code(document: dict, provider, code: str, redirect_uri: str, verifier: str) -> dict:
+async def exchange_code(
+    document: dict, provider, code: str, redirect_uri: str, verifier: str
+) -> dict:
     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(
             document["token_endpoint"],
@@ -124,10 +132,19 @@ async def validate_id_token(document: dict, provider, token: str, nonce: str) ->
         jwks_response.raise_for_status()
     header = jwt.get_unverified_header(token)
     supported_algorithms = set(document.get("id_token_signing_alg_values_supported", []))
-    allowed_algorithms = supported_algorithms.intersection({"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512"})
+    allowed_algorithms = supported_algorithms.intersection(
+        {"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512"}
+    )
     if header.get("alg") not in allowed_algorithms:
         raise HTTPException(400, "OIDC ID token uses an unsupported signing algorithm.")
-    key_data = next((key for key in jwks_response.json().get("keys", []) if key.get("kid") == header.get("kid")), None)
+    key_data = next(
+        (
+            key
+            for key in jwks_response.json().get("keys", [])
+            if key.get("kid") == header.get("kid")
+        ),
+        None,
+    )
     if not key_data:
         raise HTTPException(400, "OIDC signing key was not found.")
     claims = jwt.decode(

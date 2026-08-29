@@ -56,6 +56,18 @@ class DataDTO(OutDTO):
     mime_type: str
     raw_data_location: str
     dataset_id: UUID
+    label: Optional[str] = None
+    external_metadata: Optional[dict] = None
+
+
+class DatasetGraphSummaryDTO(OutDTO):
+    dataset_id: UUID
+    pipeline_run_id: Optional[UUID] = None
+    num_nodes: int
+    num_edges: int
+    # None while pipeline_run_id is set means the last count attempt degraded
+    # (graph store unavailable) and wasn't cached — retried on the next poll.
+    computed_at: Optional[datetime] = None
 
 
 class GraphNodeDTO(OutDTO):
@@ -74,14 +86,6 @@ class GraphEdgeDTO(OutDTO):
 class GraphDTO(OutDTO):
     nodes: List[GraphNodeDTO]
     edges: List[GraphEdgeDTO]
-
-
-class DatasetGraphSummaryDTO(OutDTO):
-    dataset_id: UUID
-    pipeline_run_id: Optional[UUID]
-    num_nodes: int
-    num_edges: int
-    computed_at: Optional[datetime]
 
 
 class DatasetCreationPayload(InDTO):
@@ -174,11 +178,11 @@ def get_datasets_router() -> APIRouter:
           dataset (e.g. ["read", "write", "delete", "share"])
 
         ## Error Codes
-        - **418 I'm a teapot**: Error retrieving datasets
+        - **500 Internal Server Error**: Error retrieving datasets
         """
         send_telemetry(
             "Datasets API Endpoint Invoked",
-            user.id,
+            user,
             additional_properties={
                 "endpoint": "GET /v1/datasets",
                 "cognee_version": cognee_version,
@@ -208,7 +212,7 @@ def get_datasets_router() -> APIRouter:
         except Exception as error:
             logger.error(f"Error retrieving datasets: {str(error)}")
             raise HTTPException(
-                status_code=status.HTTP_418_IM_A_TEAPOT,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error retrieving datasets: {str(error)}",
             ) from error
 
@@ -238,11 +242,11 @@ def get_datasets_router() -> APIRouter:
         - **owner_id**: ID of the dataset owner
 
         ## Error Codes
-        - **418 I'm a teapot**: Error creating dataset
+        - **500 Internal Server Error**: Error creating dataset
         """
         send_telemetry(
             "Datasets API Endpoint Invoked",
-            user.id,
+            user,
             additional_properties={
                 "endpoint": "POST /v1/datasets",
                 "cognee_version": cognee_version,
@@ -281,7 +285,7 @@ def get_datasets_router() -> APIRouter:
         except Exception as error:
             logger.error(f"Error creating dataset: {str(error)}")
             raise HTTPException(
-                status_code=status.HTTP_418_IM_A_TEAPOT,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error creating dataset: {str(error)}",
             ) from error
 
@@ -327,7 +331,7 @@ def get_datasets_router() -> APIRouter:
         """
         send_telemetry(
             "Datasets API Endpoint Invoked",
-            user.id,
+            user,
             additional_properties={
                 "endpoint": f"DELETE /v1/datasets/{str(dataset_id)}",
                 "dataset_id": str(dataset_id),
@@ -377,7 +381,7 @@ def get_datasets_router() -> APIRouter:
         """
         send_telemetry(
             "Datasets API Endpoint Invoked",
-            user.id,
+            user,
             additional_properties={
                 "endpoint": f"DELETE /v1/datasets/{str(dataset_id)}/data/{str(data_id)}",
                 "dataset_id": str(dataset_id),
@@ -452,6 +456,9 @@ def get_datasets_router() -> APIRouter:
         - **mime_type**: MIME type of the data
         - **raw_data_location**: Storage location of the raw data
         - **dataset_id**: ID of the containing dataset
+        - **label**: Label attached to the data item at upload, if any
+        - **external_metadata**: Stored metadata dict (upload-provided keys merged over
+          loader-derived ones), if any
 
         ## Error Codes
         - **404 Not Found**: Dataset doesn't exist or user doesn't have access
@@ -459,7 +466,7 @@ def get_datasets_router() -> APIRouter:
         """
         send_telemetry(
             "Datasets API Endpoint Invoked",
-            user.id,
+            user,
             additional_properties={
                 "endpoint": f"GET /v1/datasets/{str(dataset_id)}/data",
                 "dataset_id": str(dataset_id),
@@ -472,10 +479,12 @@ def get_datasets_router() -> APIRouter:
         # Verify user has permission to read dataset
         dataset = await get_authorized_existing_datasets([dataset_id], "read", user)
 
-        if dataset is None:
+        if not dataset:
             return JSONResponse(
                 status_code=404,
-                content=ErrorResponseDTO(f"Dataset ({str(dataset_id)}) not found."),
+                content=ErrorResponseDTO(
+                    message=f"Dataset ({str(dataset_id)}) not found."
+                ).model_dump(),
             )
 
         dataset_id = dataset[0].id
@@ -485,11 +494,15 @@ def get_datasets_router() -> APIRouter:
         if dataset_data is None:
             return []
 
+        # Dict literal, not dict(**data, dataset_id=...): Data now carries its
+        # own dataset_id column, and the kwarg form raises TypeError on the
+        # duplicate key. The requested dataset id still wins — the column is
+        # nullable, so the row's value cannot be relied on here.
         return [
-            dict(
+            {
                 **jsonable_encoder(data),
-                dataset_id=dataset_id,
-            )
+                "dataset_id": dataset_id,
+            }
             for data in dataset_data
         ]
 
@@ -514,8 +527,9 @@ def get_datasets_router() -> APIRouter:
             Query(
                 alias="pipeline",
                 description=(
-                    "Pipeline names to check: 'add_pipeline' or 'cognify_pipeline'."
-                    " Omit to default to cognify_pipeline."
+                    "Pipeline names to check: 'add_pipeline', 'cognify_pipeline', or"
+                    " 'code_graph_pipeline' (code ingestion via remember"
+                    " content_type='code'). Omit to default to cognify_pipeline."
                 ),
                 examples=[["cognify_pipeline"]],
             ),
@@ -536,7 +550,10 @@ def get_datasets_router() -> APIRouter:
           - If omitted, defaults to **cognify_pipeline** (backward-compatible behavior)
           - If one pipeline is provided, response is a flat map
           - If multiple pipelines are provided, response is nested per dataset and pipeline
-          - **Available options: add_pipeline, cognify_pipeline**
+          - **Available options: add_pipeline, cognify_pipeline, code_graph_pipeline**
+          - Note: a background code ingest creates its pipeline run only once the
+            repository is cloned — a dataset missing from the response means the run
+            has not started yet, not that it failed
 
         ## Response
         Returns status information in one of two shapes:
@@ -555,7 +572,7 @@ def get_datasets_router() -> APIRouter:
         """
         send_telemetry(
             "Datasets API Endpoint Invoked",
-            user.id,
+            user,
             additional_properties={
                 "endpoint": "GET /v1/datasets/status",
                 "datasets": [str(dataset_id) for dataset_id in datasets],
@@ -577,17 +594,21 @@ def get_datasets_router() -> APIRouter:
 
             return datasets_statuses
         except Exception as error:
-            return JSONResponse(status_code=409, content={"error": str(error)})
+            logger.error("Error retrieving dataset statuses: %s", error)
+            return JSONResponse(
+                status_code=409,
+                content={"error": "Unable to retrieve dataset statuses."},
+            )
 
-    @router.get("/graph-summary", response_model=list[DatasetGraphSummaryDTO])
-    async def get_dataset_graph_summary(
+    @router.get("/graph-summary", response_model=List[DatasetGraphSummaryDTO])
+    async def get_datasets_graph_summary(
         dataset_ids: Annotated[
             List[UUID],
             Query(
                 alias="dataset_ids",
                 description=(
-                    "Dataset UUIDs to get graph summary for (from GET /api/v1/datasets)."
-                    " Omit to get graph summary for all datasets you can read."
+                    "Dataset UUIDs to summarize (from GET /api/v1/datasets)."
+                    " Omit to summarize every dataset you can read."
                 ),
                 examples=[["b8a7c3de-4f5a-4b6c-8d9e-0f1a2b3c4d5e"]],
             ),
@@ -595,30 +616,28 @@ def get_datasets_router() -> APIRouter:
         user: User = Depends(get_authenticated_user),
     ):
         """
-        Get precomputed graph node/edge counts for datasets.
+        Get node/edge counts per dataset, cached per cognify run.
 
-        This endpoint returns the number of nodes and edges in the knowledge graph
-        for each requested dataset. The counts are computed in real-time from the
-        graph store for the current dataset context.
+        Counts are computed once per dataset's latest cognify run and cached in
+        GraphMetrics, keyed by pipeline_run_id — orders of magnitude cheaper on
+        repeat polls than GET /{dataset_id}/graph, which does a full traversal.
 
         ## Query Parameters
-        - **dataset_ids** (List[UUID]): List of dataset UUIDs to get summary for.
-          If omitted, returns summaries for all datasets the user has read permission on.
+        - **dataset_ids** (List[UUID], optional): Dataset UUIDs to summarize.
+          If omitted, summarizes every dataset the user has read permission on.
 
         ## Response
-        Returns a list of graph summary objects containing:
-        - **datasetId**: Dataset identifier
-        - **pipelineRunId**: Latest pipeline run ID that produced the graph, or null
-        - **numNodes**: Number of graph nodes
-        - **numEdges**: Number of graph edges
-        - **computedAt**: ISO timestamp when the counts were computed
-
-        ## Error Codes
-        - **401/403**: Authentication or authorization failure
+        Returns a list of summaries containing:
+        - **datasetId**: The dataset's UUID
+        - **pipelineRunId**: The dataset's latest cognify run, or null if it
+          has never been cognified
+        - **numNodes** / **numEdges**: Graph size for that run
+        - **computedAt**: When the count was cached, or null if the last
+          attempt degraded (graph store unavailable) and wasn't cached
         """
         send_telemetry(
             "Datasets API Endpoint Invoked",
-            user.id,
+            user,
             additional_properties={
                 "endpoint": "GET /v1/datasets/graph-summary",
                 "dataset_ids": [str(dataset_id) for dataset_id in dataset_ids],
@@ -626,59 +645,112 @@ def get_datasets_router() -> APIRouter:
             },
         )
 
-        try:
-            authorized_datasets = await get_authorized_existing_datasets(dataset_ids, "read", user)
+        from sqlalchemy import func
+        from sqlalchemy.orm import aliased
+        from cognee.modules.data.models import GraphMetrics
 
-            summaries = []
-            db_engine = get_relational_engine()
+        authorized_datasets = await get_authorized_existing_datasets(dataset_ids, "read", user)
+
+        if not authorized_datasets:
+            return []
+
+        db_engine = get_relational_engine()
+
+        async with db_engine.get_async_session() as session:
+            ranked_runs = (
+                select(
+                    PipelineRun,
+                    func.row_number()
+                    .over(
+                        partition_by=PipelineRun.dataset_id,
+                        order_by=PipelineRun.created_at.desc(),
+                    )
+                    .label("rn"),
+                )
+                .filter(PipelineRun.dataset_id.in_([dataset.id for dataset in authorized_datasets]))
+                .filter(PipelineRun.pipeline_name == "cognify_pipeline")
+                .subquery()
+            )
+            aliased_run = aliased(PipelineRun, ranked_runs)
+            latest_runs = (
+                (await session.execute(select(aliased_run).filter(ranked_runs.c.rn == 1)))
+                .scalars()
+                .all()
+            )
+            latest_run_by_dataset = {run.dataset_id: run for run in latest_runs}
+
+        summaries = []
+        for dataset in authorized_datasets:
+            latest_run = latest_run_by_dataset.get(dataset.id)
+            if latest_run is None:
+                summaries.append(
+                    DatasetGraphSummaryDTO(dataset_id=dataset.id, num_nodes=0, num_edges=0)
+                )
+                continue
 
             async with db_engine.get_async_session() as session:
-                for dataset in authorized_datasets:
-                    try:
-                        async with set_database_global_context_variables(
-                            dataset.id, dataset.owner_id
-                        ):
-                            graph_engine = await get_graph_engine()
-                            metrics = await graph_engine.get_graph_metrics()
-
-                        latest_run_result = await session.execute(
-                            select(PipelineRun)
-                            .filter(PipelineRun.dataset_id == dataset.id)
-                            .order_by(PipelineRun.created_at.desc())
-                            .limit(1)
-                        )
-                        latest_run = latest_run_result.scalar_one_or_none()
-
-                        summaries.append(
-                            DatasetGraphSummaryDTO(
-                                dataset_id=dataset.id,
-                                pipeline_run_id=latest_run.pipeline_run_id if latest_run else None,
-                                num_nodes=metrics.get("num_nodes", 0),
-                                num_edges=metrics.get("num_edges", 0),
-                                computed_at=datetime.now(timezone.utc),
+                cached = (
+                    (
+                        await session.execute(
+                            select(GraphMetrics).where(
+                                GraphMetrics.id == latest_run.pipeline_run_id
                             )
                         )
-                    except Exception as e:
-                        logger.error(
-                            "Failed to get graph summary for dataset %s: %s", dataset.id, e
-                        )
-                        summaries.append(
-                            DatasetGraphSummaryDTO(
-                                dataset_id=dataset.id,
-                                pipeline_run_id=None,
-                                num_nodes=0,
-                                num_edges=0,
-                                computed_at=None,
-                            )
-                        )
+                    )
+                    .scalars()
+                    .first()
+                )
 
-            return summaries
-        except Exception as error:
-            logger.error("Error retrieving graph summaries: %s", error)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error retrieving graph summaries: {str(error)}",
-            ) from error
+            if cached is not None:
+                summaries.append(
+                    DatasetGraphSummaryDTO(
+                        dataset_id=dataset.id,
+                        pipeline_run_id=latest_run.pipeline_run_id,
+                        num_nodes=cached.num_nodes or 0,
+                        num_edges=cached.num_edges or 0,
+                        computed_at=cached.created_at,
+                    )
+                )
+                continue
+
+            try:
+                async with set_database_global_context_variables(dataset.id, dataset.owner_id):
+                    graph_engine = await get_graph_engine()
+                    graph_metrics = await graph_engine.get_graph_metrics(include_optional=False)
+
+                async with db_engine.get_async_session() as session:
+                    session.add(
+                        GraphMetrics(
+                            id=latest_run.pipeline_run_id,
+                            num_nodes=graph_metrics.get("num_nodes"),
+                            num_edges=graph_metrics.get("num_edges"),
+                        )
+                    )
+                    await session.commit()
+
+                summaries.append(
+                    DatasetGraphSummaryDTO(
+                        dataset_id=dataset.id,
+                        pipeline_run_id=latest_run.pipeline_run_id,
+                        num_nodes=graph_metrics.get("num_nodes") or 0,
+                        num_edges=graph_metrics.get("num_edges") or 0,
+                        computed_at=datetime.now(timezone.utc),
+                    )
+                )
+            except Exception as error:
+                logger.warning(
+                    "Failed to compute graph metrics for dataset %s: %s", dataset.id, error
+                )
+                summaries.append(
+                    DatasetGraphSummaryDTO(
+                        dataset_id=dataset.id,
+                        pipeline_run_id=latest_run.pipeline_run_id,
+                        num_nodes=0,
+                        num_edges=0,
+                    )
+                )
+
+        return summaries
 
     @router.get("/{dataset_id}/data/{data_id}/raw", response_class=FileResponse)
     async def get_raw_data(
@@ -713,7 +785,7 @@ def get_datasets_router() -> APIRouter:
         """
         send_telemetry(
             "Datasets API Endpoint Invoked",
-            user.id,
+            user,
             additional_properties={
                 "endpoint": f"GET /v1/datasets/{str(dataset_id)}/data/{str(data_id)}/raw",
                 "dataset_id": str(dataset_id),
@@ -722,36 +794,39 @@ def get_datasets_router() -> APIRouter:
             },
         )
 
-        from cognee.modules.data.methods import get_data
-        from cognee.modules.data.methods import get_dataset_data
+        from cognee.modules.data.methods import get_dataset_data, resolve_data_id
 
         # Verify user has permission to read dataset
         dataset = await get_authorized_existing_datasets([dataset_id], "read", user)
 
-        if dataset is None:
+        if not dataset:
             return JSONResponse(
-                status_code=404, content={"detail": f"Dataset ({dataset_id}) not found."}
+                status_code=404, content={"message": f"Dataset ({dataset_id}) not found."}
             )
 
-        dataset_data = await get_dataset_data(dataset[0].id)
+        # Dataset-scoped lookup: resolves the exact id or, for a row whose
+        # identity forked in the dataset-scoping upgrade, its recorded
+        # pre-fork legacy_id — every id ever issued keeps resolving.
+        resolved_id = await resolve_data_id(dataset[0].id, data_id)
 
-        if dataset_data is None:
-            raise DataNotFoundError(message=f"No data found in dataset ({dataset_id}).")
+        if resolved_id is None:
+            raise DataNotFoundError(
+                message=f"Data ({data_id}) not found in dataset ({dataset_id})."
+            )
 
-        matching_data = [data for data in dataset_data if data.id == data_id]
+        matching_data = [
+            data for data in await get_dataset_data(dataset[0].id) if data.id == resolved_id
+        ]
 
-        # Check if matching_data contains an element
         if len(matching_data) == 0:
             raise DataNotFoundError(
                 message=f"Data ({data_id}) not found in dataset ({dataset_id})."
             )
 
-        data = await get_data(user.id, data_id, skip_owner_check=True)
-
-        if data is None:
-            raise DataNotFoundError(
-                message=f"Data ({data_id}) not found in dataset ({dataset_id})."
-            )
+        # Use the data object already verified to belong to the authorized dataset,
+        # rather than calling get_data() which checks owner_id and would reject
+        # ACL-granted readers who are not the data owner.
+        data = matching_data[0]
 
         raw_location = data.raw_data_location
         parsed_uri = urlparse(raw_location)

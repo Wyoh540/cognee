@@ -3,12 +3,21 @@ import time
 import pytest
 from fastapi import HTTPException
 
-from cognee.modules.users.oidc import decode_state, encode_state, make_pkce, normalize_slug, validate_issuer
+from cognee.modules.users.oidc import (
+    decode_state,
+    encode_state,
+    make_pkce,
+    normalize_slug,
+    validate_issuer,
+)
 
 
 def test_slug_and_local_keycloak_issuer_are_normalized():
     assert normalize_slug("Company Keycloak") == "company-keycloak"
-    assert validate_issuer("http://localhost:8080/realms/cognee/") == "http://localhost:8080/realms/cognee"
+    assert (
+        validate_issuer("http://localhost:8080/realms/cognee/")
+        == "http://localhost:8080/realms/cognee"
+    )
 
 
 def test_insecure_remote_issuer_is_rejected():

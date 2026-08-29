@@ -15,4 +15,3 @@ class OIDCIdentity(Base):
     user_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     subject = Column(String(512), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-

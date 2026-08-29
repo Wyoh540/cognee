@@ -3,22 +3,43 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 
 from cognee.infrastructure.databases.relational import get_relational_engine
+from cognee.modules.users.exceptions import PermissionDeniedError
+from cognee.modules.users.models import Role, UserRole
 from cognee.modules.users.permissions.methods.has_tenant_membership import (
     has_tenant_membership,
+)
+from cognee.modules.users.permissions.methods.has_user_management_permission import (
+    has_user_management_permission,
 )
 
 
 async def get_tenant_roles(tenant_id: UUID, user):
-    # Ensure the requesting user is a member of this tenant
+    """
+    List roles in a tenant.
+
+    Callers with user management permission (owner or admin) see every role in
+    the tenant. Everyone else sees only the roles they are a member of.
+    """
+    # Preserve the request-scoped workspace boundary before deciding how much
+    # role information the member may see.
     await has_tenant_membership(user.id, tenant_id)
+
+    try:
+        await has_user_management_permission(user.id, tenant_id)
+        can_manage_users = True
+    except PermissionDeniedError:
+        can_manage_users = False
 
     db_engine = get_relational_engine()
     async with db_engine.get_async_session() as session:
-        from cognee.modules.users.models import Role
+        query = select(Role).options(selectinload(Role.users)).where(Role.tenant_id == tenant_id)
 
-        roles_result = await session.execute(
-            select(Role).options(selectinload(Role.users)).where(Role.tenant_id == tenant_id)
-        )
+        if not can_manage_users:
+            query = query.where(
+                Role.id.in_(select(UserRole.role_id).where(UserRole.user_id == user.id))
+            )
+
+        roles_result = await session.execute(query)
         roles = roles_result.scalars().all()
 
         # Format response

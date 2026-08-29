@@ -96,6 +96,11 @@ services:
       API_URL: http://cognee:8000
       COGNEE_API_KEY: ${COGNEE_API_KEY:-}
       API_TOKEN: ${COGNEE_API_TOKEN:-}
+      DATA_ROOT_DIRECTORY: ${DATA_ROOT_DIRECTORY:-/data/uploads}
+      SYSTEM_ROOT_DIRECTORY: ${SYSTEM_ROOT_DIRECTORY:-/data/system}
+      CACHE_ROOT_DIRECTORY: ${CACHE_ROOT_DIRECTORY:-/data/cache}
+      COGNEE_LOGS_DIR: ${COGNEE_LOGS_DIR:-/data/logs}
+      FASTEMBED_CACHE_PATH: ${FASTEMBED_CACHE_PATH:-/data/models/fastembed}
     volumes:
       - cognee_data:/data
     ports:
